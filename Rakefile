@@ -27,6 +27,7 @@ namespace :test do
 
   task :coverage do
     require 'simplecov'
+    require 'minitest'
     SimpleCov.start do
       add_group 'lib', 'lib'
       add_group 'ext', 'ext'
