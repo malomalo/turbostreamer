@@ -33,7 +33,7 @@ jobs:
       - name: Setup Gemfile
         run: |
           echo 'source "https://rubygems.org"' > Gemfile
-          echo 'gem "rails", "~> ${{ matrix.rails }}"' >> Gemfile
+          echo 'gem "rails", "${{ matrix.rails }}"' >> Gemfile
           echo 'gemspec' >> Gemfile
           
       - name: Run tests
