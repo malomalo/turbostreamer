@@ -39,4 +39,4 @@ jobs:
       - name: Run tests
         run: |
           bundle install
-          bundle exec rake test:${{ matrix.ruby }}
+          bundle exec rake test:${{ matrix.encoder }}
