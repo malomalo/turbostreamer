@@ -11,6 +11,7 @@ jobs:
     name: TurboStremaer Test
     runs-on: ubuntu-20.04
     strategy:
+      fail-fast: false
       matrix:
         ruby: ['2.6', '2.7', '3.0']
         encoder: [oj, wankel]
