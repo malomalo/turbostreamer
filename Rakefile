@@ -40,7 +40,7 @@ namespace :test do
 end
 
 task :performance do
-  require 'analyzer'
+  require File.expand_path('~/Code/analyzer/lib/analyzer', __FILE__)
   
   base = File.expand_path("../performance/rolftimmermans", __FILE__)
   output_file = File.join(base, 'report.png')
