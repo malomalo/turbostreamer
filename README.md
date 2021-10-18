@@ -356,8 +356,7 @@ This will produce 2 graph images on in folders
 
 The reports below were generated on macOS 10.14.6 Mac mini with a 3.2 Ghz Intel Core i7:
 
-[![dirk](performance/dirk/report.png)]
-[![rolftimmermans](performance/rolftimmermans/report.png)]
+<img src="performance/dirk/report.png" width="480" alt="dirk"><img src="performance/rolftimmermans/report.png" width="480" alt="rolftimmermans">
 
 Special Thanks & Contributors
 -----------------------------
