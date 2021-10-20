@@ -7,20 +7,13 @@ module Rails
   end
 end
 
+VIEW_PATH = File.expand_path("../performance/dirk/rabl/views/", __FILE__)
+SOURCE = File.read(File.join(VIEW_PATH, "template.rabl"))
+
 # Fill the cache
-Rabl.render(
-  nil,
-  "template",
-  view_path: File.expand_path("../performance/dirk/rabl/views/", __FILE__),
-  format: :json,
-)
+Rabl::Renderer.new(SOURCE, nil, {format: :json}).render
 
 # Everthing before this is run once initially, after is the test
 __SETUP__
 
-Rabl.render(
-  nil,
-  "template",
-  view_path: File.expand_path("../performance/dirk/rabl/views/", __FILE__),
-  format: :json,
-)
+Rabl::Renderer.new(SOURCE, nil, {format: :json}).render
