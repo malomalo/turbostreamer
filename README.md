@@ -340,19 +340,23 @@ All backends must have the following functions:
 - `inject(string)` Inject a (usually cached) string into the output; instering any delimiters as needed.
 - `capture(&block)` Capture the output of the block (w/o any delimiters)
 
-Benchmark
----------
-`gnuplot` is required to run benchmark, to install:
-- `brew install gnuplot` (MacOS)
+Performance Benchmarks
+----------------------
 
-`yajl` is required to install a development dependency [`wankel`](https://github.com/malomalo/wankel), to install:
-- `brew install yajl` (MacOS)
+[Gnuplot](http://www.gnuplot.info) and [YAJL](http://lloyd.github.io/yajl/) are
+required to run the benchmarks. To install:
 
-To run benchmark: `bundle exec rake performance`
+- `brew install gnuplot yajl` (MacOS)
+
+To run the benchmarks run: `bundle exec rake performance`
 
 This will produce 2 graph images on in folders
 - `performance/dirk`
 - `performance/rolftimmermans`
+
+The reports below were generated on macOS 10.14.6 Mac mini with a 3.2 Ghz Intel Core i7:
+
+<img src="performance/dirk/report.png" width="480" alt="dirk"><img src="performance/rolftimmermans/report.png" width="480" alt="rolftimmermans">
 
 Special Thanks & Contributors
 -----------------------------
