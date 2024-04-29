@@ -8,7 +8,10 @@ Gem::Specification.new do |spec|
   spec.email         = ["jonbracy@gmail.com"]
   spec.homepage      = "https://github.com/malomalo/turbostreamer"
   spec.summary       = 'Stream JSON via a Builder-style DSL'
-  # spec.description   = %q{}
+  spec.description   = <<-DESC
+    TurboStreamer is a JBuilder-like DSL for building JSON that streams directly
+    to a string or IO
+  DESC
 
   spec.extra_rdoc_files = %w(README.md)
   spec.rdoc_options.concat ['--main', 'README.md']
@@ -17,12 +20,13 @@ Gem::Specification.new do |spec|
   spec.test_files    = `git ls-files -- {test}/*`.split("\n")
   spec.require_paths = ["lib"]
 
-  spec.required_ruby_version = '>= 2.5'
+  spec.required_ruby_version = '>= 3.0'
 
   spec.add_runtime_dependency 'activesupport', '>= 5.0.0'
 
   spec.add_development_dependency "rake"
   spec.add_development_dependency "wankel"
+  spec.add_development_dependency 'minitest-reporters'
   spec.add_development_dependency "oj"
   spec.add_development_dependency "bundler"
   spec.add_development_dependency "mocha"
@@ -34,6 +38,7 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency 'jbuilder'
   spec.add_development_dependency 'rabl'
   spec.add_development_dependency "appraisal", "~> 2.0"
+  spec.add_development_dependency "railties"
   # For running benchmark
   spec.add_development_dependency 'multi_json'
   # spec.add_development_dependency 'sdoc',                '~> 0.4'

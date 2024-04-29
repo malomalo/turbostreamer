@@ -2,22 +2,17 @@
 # installed gem
 $LOAD_PATH << File.expand_path('../lib', __FILE__)
 
+require "minitest/reporters"
+Minitest::Reporters.use! Minitest::Reporters::SpecReporter.new
 
-require "active_support"
+require 'turbostreamer'
+require 'turbostreamer/railtie'
 
 require 'action_view'
 require 'action_view/testing/resolvers'
 
-require 'turbostreamer'
-require 'turbostreamer/handler'
-require 'turbostreamer/template'
-
-require File.expand_path('../../ext/actionview/buffer', __FILE__)
-require File.expand_path('../../ext/actionview/streaming_template_renderer', __FILE__)
-
 require "active_support/testing/autorun"
 require 'mocha/minitest'
-require 'wankel'
 
 if ENV["TSENCODER"]
   TurboStreamer.set_default_encoder(:json, ENV["TSENCODER"].to_sym)
@@ -26,7 +21,7 @@ end
 class ActiveSupport::TestCase
 
   def jbuild(*args, &block)
-    ::Wankel.parse(TurboStreamer.encode(*args, &block))
+    ::JSON.parse(TurboStreamer.encode(*args, &block))
   end
 
   def assert_json(json, &block)

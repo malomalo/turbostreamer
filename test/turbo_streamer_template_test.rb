@@ -31,7 +31,7 @@ blog_authors = [ 'David Heinemeier Hansson', 'Pavel Pravosud' ].cycle
 BLOG_POST_COLLECTION = 10.times.map{ |i| BlogPost.new(i+1, "post body #{i+1}", blog_authors.next) }
 COLLECTION_COLLECTION = 5.times.map{ |i| Collection.new(i+1, "collection #{i+1}") }
 
-ActionView::Template.register_template_handler :streamer, TurboStreamer::Handler
+TurboStreamer::Railtie.initializers.each(&:run)
 
 module Rails
   def self.cache
@@ -70,7 +70,7 @@ class TurboStreamerTemplateTest < ActionView::TestCase
   end
 
   def assert_collection_rendered(json, overrides = {}, *selector)
-    result = Wankel.load(json)
+    result = JSON.load(json)
     if !overrides.is_a?(Hash)
       selector.unshift(overrides)
       overrides = {}
@@ -96,7 +96,7 @@ class TurboStreamerTemplateTest < ActionView::TestCase
       end
     STREAMER
 
-    assert_equal({"content" => 'hello'}, Wankel.load(json))
+    assert_equal({"content" => 'hello'}, JSON.load(json))
   end
 
   # Partial Test ===========================================================
@@ -106,7 +106,7 @@ class TurboStreamerTemplateTest < ActionView::TestCase
       json.partial! 'partial'
     STREAMER
 
-    assert_equal({"content" => 'hello'}, Wankel.load(json))
+    assert_equal({"content" => 'hello'}, JSON.load(json))
   end
 
   test 'partial! renders collections' do
@@ -130,7 +130,7 @@ class TurboStreamerTemplateTest < ActionView::TestCase
       json.partial! 'collection', collection: COLLECTION_COLLECTION, as: :collection
     STREAMER
 
-    assert_equal 5, Wankel.load(json).length
+    assert_equal 5, JSON.load(json).length
   end
 
   test 'partial! renders as empty array for nil-collection' do
@@ -205,7 +205,7 @@ class TurboStreamerTemplateTest < ActionView::TestCase
         end
       end
     STREAMER
-    assert_equal({'name' => 'Cache'}, Wankel.load(json))
+    assert_equal({'name' => 'Cache'}, JSON.load(json))
 
     json = render_streamer <<-STREAMER
       json.object! do
@@ -214,7 +214,7 @@ class TurboStreamerTemplateTest < ActionView::TestCase
         end
       end
     STREAMER
-    assert_equal({'name' => 'Cache'}, Wankel.load(json))
+    assert_equal({'name' => 'Cache'}, JSON.load(json))
   end
 
   test 'conditionally fragment caching a JSON object' do
@@ -230,7 +230,7 @@ class TurboStreamerTemplateTest < ActionView::TestCase
         end
       end
     STREAMER
-    assert_equal({'test1' => 'Cache', 'test2' => 'Cache'}, Wankel.load(json))
+    assert_equal({'test1' => 'Cache', 'test2' => 'Cache'}, JSON.load(json))
 
     json = render_streamer <<-STREAMER
       json.object! do
@@ -242,7 +242,7 @@ class TurboStreamerTemplateTest < ActionView::TestCase
         end
       end
     STREAMER
-    assert_equal({'test1' => 'Cache', 'test2' => 'Miss'}, Wankel.load(json))
+    assert_equal({'test1' => 'Cache', 'test2' => 'Miss'}, JSON.load(json))
   end
 
   test 'fragment caching deserializes an array' do
@@ -255,7 +255,7 @@ class TurboStreamerTemplateTest < ActionView::TestCase
     STREAMER
 
     # cache miss output correct
-    assert_equal(%w[a b c], Wankel.load(json))
+    assert_equal(%w[a b c], JSON.load(json))
 
     json = render_streamer <<-STREAMER
       json.cache! 'cachekey' do
@@ -264,7 +264,7 @@ class TurboStreamerTemplateTest < ActionView::TestCase
     STREAMER
 
     # cache hit output correct
-    assert_equal(%w[a b c], Wankel.load(json))
+    assert_equal(%w[a b c], JSON.load(json))
   end
 
   test 'fragment caching works in an array' do
@@ -288,7 +288,7 @@ class TurboStreamerTemplateTest < ActionView::TestCase
       {"char" => "b"},
       {"char" => "c"},
       {"char" => "d"},
-    ], Wankel.load(json))
+    ], JSON.load(json))
 
     json = render_streamer <<-STREAMER
       json.array! do
@@ -308,7 +308,7 @@ class TurboStreamerTemplateTest < ActionView::TestCase
       {"char" => "b"},
       {"char" => "c"},
       {"char" => "d"},
-    ], Wankel.load(json))
+    ], JSON.load(json))
   end
 
   test 'fragment caching works with objects in array in object' do
@@ -340,7 +340,7 @@ class TurboStreamerTemplateTest < ActionView::TestCase
           {"char" => "d"},
         ]
       },
-      Wankel.load(json),
+      JSON.load(json),
     )
 
     json = render_streamer <<-STREAMER
@@ -369,7 +369,7 @@ class TurboStreamerTemplateTest < ActionView::TestCase
           {"char" => "d"},
         ]
       },
-      Wankel.load(json),
+      JSON.load(json),
     )
   end
 
@@ -402,7 +402,7 @@ class TurboStreamerTemplateTest < ActionView::TestCase
           ["d"],
         ]
       },
-      Wankel.load(json),
+      JSON.load(json),
     )
 
     json = render_streamer <<-STREAMER
@@ -431,7 +431,7 @@ class TurboStreamerTemplateTest < ActionView::TestCase
           ["d"],
         ]
       },
-      Wankel.load(json),
+      JSON.load(json),
     )
   end
 
@@ -446,7 +446,7 @@ class TurboStreamerTemplateTest < ActionView::TestCase
       end
     STREAMER
 
-    assert_equal({'name' => 'Cache'}, Wankel.load(json))
+    assert_equal({'name' => 'Cache'}, JSON.load(json))
   end
 
   test 'current cache digest option accepts options' do
@@ -460,7 +460,7 @@ class TurboStreamerTemplateTest < ActionView::TestCase
       end
     STREAMER
 
-    assert_equal({'name' => 'Cache'}, Wankel.load(json))
+    assert_equal({'name' => 'Cache'}, JSON.load(json))
   end
 
   test 'does not perform caching when controller.perform_caching is false' do
@@ -475,7 +475,7 @@ class TurboStreamerTemplateTest < ActionView::TestCase
     STREAMER
 
     assert_equal Rails.cache.inspect[/entries=(\d+)/, 1], '0'
-    assert_equal({'name' => 'Cache'}, Wankel.load(json))
+    assert_equal({'name' => 'Cache'}, JSON.load(json))
   end
 
   test 'renders cached array of block partials' do
@@ -537,6 +537,22 @@ class TurboStreamerTemplateTest < ActionView::TestCase
     STREAMER
 
     assert_collection_rendered(json, {0 => 'CACHE HIT'}, 'key')
+  end
+
+  test "timestamp precision" do
+    # Reset options for boot process and run rails initializers
+    TurboStreamer.class_variable_set(:@@default_encoders, {})
+    TurboStreamer.class_variable_set(:@@encoder_options, Hash.new { |h, k| h[k] = {} })
+    TurboStreamer::Railtie.initializers.each(&:run)
+    ActiveSupport.run_load_hooks(:action_view)
+    
+    ActiveSupport::JSON::Encoding.time_precision = 6
+    
+    result = jbuild do |json|
+      json.object! { json.timestamp Time.utc(2001, 9, 9, 1, 46, 40, 500500) }
+    end
+    
+    assert_equal({"timestamp"=>"2001-09-09T01:46:40.500500Z"}, result)
   end
 
 end

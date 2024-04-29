@@ -5,18 +5,19 @@
 [![Gem Version](http://img.shields.io/gem/v/turbostreamer.svg?style=flat-square)](http://badge.fury.io/rb/turbostreamer)
 [![License](https://img.shields.io/github/license/malomalo/turbostreamer.svg?style=flat-square)](http://badge.fury.io/rb/turbostreamer)
 
-TurboStreamer gives you a simple DSL for generating JSON that beats massaging giant
-hash structures. This is particularly helpful when the generation process is
-fraught with conditionals and loops.
-
+TurboStreamer gives you a simple DSL like jBuilder for generating JSON that
+streams directly to a String or IO object.
 
 [Jbuilder](https://github.com/rails/jbuilder) builds a Hash as it renders the
 template and once complete converts the Hash to JSON. TurboStreamer on the other
 hand writes directly to the output as it is rendering the template. Because of
 this some of the magic cannot be done and requires a little more verboseness.
 
-Examples
---------
+Because no time is spent creating a hash caching is also fast. No time is spent
+marshaling and unmarshaling from the cache, instead the string is cached and
+directly inserted into the stream skipping any unmarshaling.
+
+## Examples
 
 ``` ruby
 # app/views/message/show.json.streamer
