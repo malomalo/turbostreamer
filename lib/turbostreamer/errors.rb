@@ -1,5 +1,3 @@
-
-
 class TurboStreamer
   module Errors
     class MergeError < ::StandardError

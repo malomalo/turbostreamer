@@ -25,15 +25,6 @@ jobs:
           - rails_7_1
         allow_failures:
           - false
-        include:
-          - ruby: ruby-head
-            gemfile: gemfiles/rails_7_1.gemfile
-            encoder: oj
-            allow_failures: true
-          - ruby: ruby-head
-            gemfile: gemfiles/rails_7_1.gemfile
-            encoder: wankel
-            allow_failures: true
     env:
       BUNDLE_GEMFILE: "gemfiles/${{ matrix.gemfile }}.gemfile"
       ALLOW_FAILURES: "${{ matrix.allow_failures }}"

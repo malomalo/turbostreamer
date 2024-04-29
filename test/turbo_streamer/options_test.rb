@@ -1,15 +1,10 @@
 require 'test_helper'
 
 class TurboStreamer::OptionsTest < ActiveSupport::TestCase
-
-  setup do
-    @default_encoder = TurboStreamer.class_variable_get(:@@default_encoders).deep_dup
-    @default_options = TurboStreamer.class_variable_get(:@@encoder_options).deep_dup
-  end
   
   teardown do
-    @default_encoder = TurboStreamer.class_variable_set(:@@default_encoders, @default_encoder)
-    @default_options = TurboStreamer.class_variable_set(:@@encoder_options, @default_options)
+    TurboStreamer.class_variable_set(:@@default_encoders, {})
+    TurboStreamer.class_variable_set(:@@encoder_options, Hash.new { |h, k| h[k] = {} })
   end
   
   test 'setting default options' do

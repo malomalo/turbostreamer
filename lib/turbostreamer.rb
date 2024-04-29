@@ -1,13 +1,12 @@
 require 'stringio'
 
-require 'turbostreamer/errors'
-
 class TurboStreamer
 
   autoload :Handler, 'turbostreamer/handler'
   autoload :Template, 'turbostreamer/template'
   autoload :KeyFormatter, 'turbostreamer/key_formatter'
-
+  autoload :Errors, 'turbostreamer/errors'
+  
   BLANK = ::Object.new
 
   ENCODERS = {
