@@ -548,10 +548,10 @@ class TurboStreamerTemplateTest < ActionView::TestCase
     ActiveSupport::JSON::Encoding.time_precision = 6
     
     result = jbuild do |json|
-      json.object! { json.timestamp Time.at(1000000000, 500500, :usec) }
+      json.object! { json.timestamp Time.at(1000000000, 500500, :usec, in: 'UTC') }
     end
     
-    assert_equal({"timestamp"=>"2001-09-08T20:46:40.500500-05:00"}, result)
+    assert_equal({"timestamp"=>"2001-09-09T01:46:40.500500Z"}, result)
   end
 
 end
