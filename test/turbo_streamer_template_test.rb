@@ -31,7 +31,7 @@ blog_authors = [ 'David Heinemeier Hansson', 'Pavel Pravosud' ].cycle
 BLOG_POST_COLLECTION = 10.times.map{ |i| BlogPost.new(i+1, "post body #{i+1}", blog_authors.next) }
 COLLECTION_COLLECTION = 5.times.map{ |i| Collection.new(i+1, "collection #{i+1}") }
 
-ActionView::Template.register_template_handler :streamer, TurboStreamer::Handler
+TurboStreamer::Railtie.initializers.each(&:run)
 
 module Rails
   def self.cache
@@ -537,6 +537,21 @@ class TurboStreamerTemplateTest < ActionView::TestCase
     STREAMER
 
     assert_collection_rendered(json, {0 => 'CACHE HIT'}, 'key')
+  end
+
+  test "timestamp precision" do
+    # Reset options for boot process and run rails initializers
+    TurboStreamer.class_variable_set(:@@default_encoders, {})
+    TurboStreamer.class_variable_set(:@@encoder_options, Hash.new { |h, k| h[k] = {} })
+    TurboStreamer::Railtie.initializers.each(&:run)
+    
+    ActiveSupport::JSON::Encoding.time_precision = 6
+    
+    result = jbuild do |json|
+      json.object! { json.timestamp Time.at(1000000000, 500500, :usec) }
+    end
+    
+    assert_equal({"timestamp"=>"2001-09-08T20:46:40.500500-05:00"}, result)
   end
 
 end

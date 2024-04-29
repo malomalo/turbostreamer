@@ -1,8 +1,12 @@
 require 'stringio'
-require 'turbostreamer/key_formatter'
+
 require 'turbostreamer/errors'
 
 class TurboStreamer
+
+  autoload :Handler, 'turbostreamer/handler'
+  autoload :Template, 'turbostreamer/template'
+  autoload :KeyFormatter, 'turbostreamer/key_formatter'
 
   BLANK = ::Object.new
 
@@ -228,17 +232,22 @@ class TurboStreamer
     @@key_formatter = formatter
   end
 
-  def self.set_default_encoder(mime, encoder, default_options={})
-    if encoder.is_a?(Symbol)
-      @@default_encoders[mime] = get_encoder(mime, encoder)
+  def self.set_default_encoder(mime, encoder, default_options=nil)
+    @@default_encoders[mime] = if encoder.is_a?(Symbol)
+      get_encoder(mime, encoder)
     else
-      @@default_encoders[mime] = encoder
+      encoder
     end
-    @@encoder_options[encoder] = default_options
+
+    @@encoder_options[encoder] = default_options if default_options
   end
   
   def self.set_default_encoder_options(encoder, options)
     @@encoder_options[encoder] = options
+  end
+  
+  def self.has_default_encoder_options?(encoder)
+    @@encoder_options.has_key?(encoder)
   end
 
   def self.get_encoder(mime, key)

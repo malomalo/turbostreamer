@@ -1,5 +1,3 @@
-require 'turbostreamer'
-
 dependency_tracker = false
 
 begin
