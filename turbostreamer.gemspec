@@ -37,7 +37,6 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency 'analyzer'
   spec.add_development_dependency 'jbuilder'
   spec.add_development_dependency 'rabl'
-  spec.add_development_dependency "appraisal", "~> 2.0"
   spec.add_development_dependency "railties"
   # For running benchmark
   spec.add_development_dependency 'multi_json'
