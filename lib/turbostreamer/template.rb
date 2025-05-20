@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'turbostreamer'
 
 class TurboStreamer::Template < TurboStreamer

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class TurboStreamer
   module Errors
     class MergeError < ::StandardError

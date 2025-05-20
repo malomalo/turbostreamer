@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module ActionView
   class OutputBuffer
     alias :write :safe_concat
