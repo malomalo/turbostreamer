@@ -20,9 +20,9 @@ Gem::Specification.new do |spec|
   spec.test_files    = `git ls-files -- {test}/*`.split("\n")
   spec.require_paths = ["lib"]
 
-  spec.required_ruby_version = '>= 3.0'
+  spec.required_ruby_version = '>= 3.2.0'
 
-  spec.add_runtime_dependency 'activesupport', '>= 5.0.0'
+  spec.add_runtime_dependency 'activesupport', '>= 7.0.0'
 
   spec.add_development_dependency "rake"
   spec.add_development_dependency "wankel"
