@@ -8,7 +8,7 @@ class TurboStreamer
   autoload :Template, 'turbostreamer/template'
   autoload :KeyFormatter, 'turbostreamer/key_formatter'
   autoload :Errors, 'turbostreamer/errors'
-  
+
   BLANK = ::Object.new
 
   ENCODERS = {
@@ -99,11 +99,7 @@ class TurboStreamer
   #
   #   { "name": David", "age": 32 }, { "name": Jamie", "age": 31 }
   def extract!(object, *attributes)
-    if ::Hash === object
-      attributes.each{ |key| _set_value key, object.fetch(key) }
-    else
-      attributes.each{ |key| _set_value key, object.public_send(key) }
-    end
+    _extract(object, attributes)
   end
 
   # Turns the current element into an array and iterates over the passed
@@ -169,7 +165,7 @@ class TurboStreamer
     else
       # json.author @post.creator, :name, :email_address
       # { "author": { "name": "David", "email_address": "david@thinking.com" } }
-      object!{ extract!(value, *args) }
+      object!{ _extract(value, args) }
     end
   end
 
@@ -242,11 +238,11 @@ class TurboStreamer
 
     @@encoder_options[encoder] = default_options if default_options
   end
-  
+
   def self.set_default_encoder_options(encoder, options)
     @@encoder_options[encoder] = options
   end
-  
+
   def self.has_default_encoder_options?(encoder)
     @@encoder_options.has_key?(encoder)
   end
@@ -327,7 +323,7 @@ class TurboStreamer
     elsif _eachable_arguments?(value, *args)
       _scope{ array!(value, *args) }
     else
-      object!{ extract!(value, *args) }
+      object!{ _extract(value, args) }
     end
 
   end
@@ -344,6 +340,14 @@ class TurboStreamer
   end
 
   private
+
+  def _extract(object, attributes)
+    if ::Hash === object
+      attributes.each{ |key| _set_value key, object.fetch(key) }
+    else
+      attributes.each{ |key| _set_value key, object.public_send(key) }
+    end
+  end
 
   def _write(key, value)
     @encoder.key(_key(key))
