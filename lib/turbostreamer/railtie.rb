@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Rails. 8.1 requires this not sure why we have to load it and the railtie doesn't
+require "active_support/core_ext/module/delegation"
+
 require 'rails/railtie'
 
 class TurboStreamer
