@@ -8,16 +8,24 @@ Gem::Specification.new do |spec|
   spec.email         = ["jonbracy@gmail.com"]
   spec.homepage      = "https://github.com/malomalo/turbostreamer"
   spec.summary       = 'Stream JSON via a Builder-style DSL'
-  spec.description   = <<-DESC
-    TurboStreamer is a JBuilder-like DSL for building JSON that streams directly
-    to a string or IO
-  DESC
+  spec.description   = 'TurboStreamer is a JBuilder-like DSL for building ' \
+                       'JSON that streams directly to a string or IO'
+
+  spec.metadata = {
+    'source_code_uri'       => spec.homepage,
+    'bug_tracker_uri'       => "#{spec.homepage}/issues",
+    'changelog_uri'         => "#{spec.homepage}/blob/master/CHANGELOG.md",
+    'rubygems_mfa_required' => 'true'
+  }
 
   spec.extra_rdoc_files = %w(README.md)
   spec.rdoc_options.concat ['--main', 'README.md']
 
-  spec.files         = `git ls-files -- README.md {lib,ext}/*`.split("\n")
-  spec.test_files    = `git ls-files -- {test}/*`.split("\n")
+  # Pass directories rather than brace globs: `{lib,ext}/*` relies on brace
+  # expansion, which dash (/bin/sh on Debian & Ubuntu) does not implement, so
+  # git would receive a literal pathspec, match nothing, and exit 0 -- silently
+  # building a gem containing only README.md.
+  spec.files         = `git ls-files -z -- README.md LICENSE CHANGELOG.md lib ext`.split("\x0")
   spec.require_paths = ["lib"]
 
   spec.required_ruby_version = '>= 3.3.0'
@@ -28,18 +36,13 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency "wankel"
   spec.add_development_dependency 'minitest-reporters'
   spec.add_development_dependency "oj"
-  spec.add_development_dependency "bundler"
   spec.add_development_dependency "mocha"
   spec.add_development_dependency "simplecov"
   spec.add_development_dependency "byebug"
   spec.add_development_dependency "actionview"
   spec.add_development_dependency "actionpack"
-  spec.add_development_dependency 'analyzer'
-  spec.add_development_dependency 'jbuilder'
-  spec.add_development_dependency 'rabl'
   spec.add_development_dependency "railties"
-  # For running benchmark
-  spec.add_development_dependency 'multi_json'
-  # spec.add_development_dependency 'sdoc',                '~> 0.4'
-  # spec.add_development_dependency 'sdoc-templates-42floors', '~> 0.3'
+  # The gems used only by `rake performance` (analyzer, jbuilder, rabl,
+  # multi_json) live in the Gemfile's optional :performance group so CI doesn't
+  # install them for every matrix cell.
 end
