@@ -33,4 +33,27 @@ class ActiveSupport::TestCase
     assert_equal json, jbuild(&block)
   end
 
+  # Renders through ActionView::StreamingTemplateRenderer, the path a controller
+  # takes for `render stream: true`. Returns the Rack body, which is a
+  # StreamingTemplateRenderer::Body when streaming and a plain Array when not.
+  def render_streaming(source, layout: 'layouts/app', layout_source: 'json.yield!')
+    resolver = ActionView::FixtureResolver.new(
+      'test.json.streamer' => source,
+      'layouts/app.json.streamer' => layout_source
+    )
+    lookup_context = ActionView::LookupContext.new(
+      ActionView::PathSet.new([resolver]), formats: [:json], handlers: [:streamer]
+    )
+    view = ActionView::Base.with_empty_template_cache.new(lookup_context, {}, nil)
+    renderer = ActionView::StreamingTemplateRenderer.new(lookup_context)
+
+    renderer.render(view, template: 'test', layout: layout)
+  end
+
+  # Consumes the body exactly once -- each pass re-runs the render, which would
+  # double up the render_template.action_view notifications.
+  def chunks_from(body)
+    [].tap { |chunks| body.each { |chunk| chunks << chunk } }
+  end
+
 end
