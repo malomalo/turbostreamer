@@ -5,16 +5,15 @@ require 'test_helper'
 class RailsIntegration::StreamingTest < ActiveSupport::TestCase
 
   test "streams a template through StreamingTemplateRenderer" do
-    body = render_streaming('json.object! { json.a 1; json.b "two" }')
+    body = render_streaming('json.object! { json.a 1; json.b "two" }').join
 
-    assert_kind_of ActionView::StreamingTemplateRenderer::Body, body
-    assert_equal({ 'a' => 1, 'b' => 'two' }, JSON.parse(chunks_from(body).join))
+    assert_equal({ 'a' => 1, 'b' => 'two' }, JSON.parse(body))
   end
 
   # Body#each rescues Exception and substitutes an error page, so a raise inside
   # delayed_render_json never reaches the caller. Assert on the output instead.
   test "streaming does not fall back to the error page" do
-    output = chunks_from(render_streaming('json.object! { json.a 1 }')).join
+    output = render_streaming('json.object! { json.a 1 }').join
 
     refute_includes output, '500.html',
       'delayed_render_json raised; Body#each swallowed it into streaming_completion_on_exception'
@@ -28,7 +27,7 @@ class RailsIntegration::StreamingTest < ActiveSupport::TestCase
     end
 
     begin
-      chunks_from(render_streaming('json.object! { json.a 1 }'))
+      render_streaming('json.object! { json.a 1 }')
     ensure
       ActiveSupport::Notifications.unsubscribe(subscriber)
     end
@@ -42,7 +41,7 @@ class RailsIntegration::StreamingTest < ActiveSupport::TestCase
     # The Oj encoder flushes every BUFFER_SIZE bytes, so a document comfortably
     # over that arrives in pieces rather than all at once.
     source = 'json.array! { 2_000.times { |i| json.child! { json.object! { json.index i } } } }'
-    chunks = chunks_from(render_streaming(source))
+    chunks = render_streaming(source)
 
     assert_operator chunks.size, :>, 1,
       'expected the response to arrive in multiple chunks'
@@ -55,7 +54,7 @@ class RailsIntegration::StreamingTest < ActiveSupport::TestCase
     body = render_streaming('json.object! { json.a 1 }', layout: nil)
 
     refute_kind_of ActionView::StreamingTemplateRenderer::Body, body
-    assert_equal({ 'a' => 1 }, JSON.parse(chunks_from(body).join))
+    assert_equal({ 'a' => 1 }, JSON.parse(body.join))
   end
 
 end

@@ -233,22 +233,7 @@ end
 
 Because a stream cannot be replayed, the template renders once. A second
 `json.yield!` — or one from inside the template itself — raises
-`TurboStreamer::Errors::NothingToYieldError` rather than rendering twice.
-
-When there may legitimately be nothing to yield, ask for null instead of the
-error:
-
-```ruby
-json.key! :data
-json.yield!(required: false)
-
-# => { "data": null }
-```
-
-Unlike ERB, where `<%= yield %>` with nothing to yield quietly renders an empty
-string, the default here is to raise. An empty string is still valid HTML, but a
-key with no value is not valid JSON — it fails later inside the encoder, with a
-message pointing at the encoder rather than at the layout.
+`TurboStreamer::Errors::NoTemplateToYieldError` rather than rendering twice.
 
 #### Why `json.yield!` and not `yield`
 

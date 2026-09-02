@@ -86,21 +86,9 @@ class TurboStreamer::Template < TurboStreamer
   #   end
   #
   #   { "meta": { "version": 1 }, "data": { ... the template ... } }
-  # Pass `required: false` to emit null instead of raising when there is
-  # nothing to yield -- a layout whose payload is optional, or one rendered
-  # without a template:
-  #
-  #   json.key! :data
-  #   json.yield!(required: false)
-  #
-  #   { "data": null }
-  def yield!(required: true)
+  def yield!
     content = @context.instance_variable_get(:@_turbostreamer_content)
-
-    if content.nil?
-      raise Errors::NothingToYieldError.build if required
-      return value!(nil)
-    end
+    raise Errors::NoTemplateToYieldError.build if content.nil?
 
     content.call(self)
   end

@@ -9,10 +9,9 @@ class TurboStreamer
       end
     end
 
-    class NothingToYieldError < ::StandardError
+    class NoTemplateToYieldError < ::StandardError
       def self.build
-        new("`yield!` was called outside a layout, so there is no template to " \
-            "render. Pass `required: false` to emit null instead.")
+        new("`yield!` was called outside a layout, so there is no template to render")
       end
     end
 

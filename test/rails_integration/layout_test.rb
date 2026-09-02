@@ -34,8 +34,7 @@ class RailsIntegration::LayoutTest < ActiveSupport::TestCase
   end
 
   test "a template without a layout is unaffected without streaming" do
-    output = render_template('json.object! { json.a 1 }', layout: nil)
-    assert_equal({ 'a' => 1 }, JSON.parse(output))
+    assert_equal({ 'a' => 1 }, JSON.parse(render_template('json.object! { json.a 1 }', layout: nil)))
   end
 
   test "a layout wraps the template it yields to" do
@@ -89,32 +88,11 @@ class RailsIntegration::LayoutTest < ActiveSupport::TestCase
     assert_match 'json.yield!', error.cause.message
   end
 
-  test "yield! emits null instead of raising when not required" do
-    view = ActionView::Base.with_empty_template_cache.new(ActionView::LookupContext.new([]), {}, nil)
-    builder = TurboStreamer::Template.new(view)
-
-    builder.object! do
-      builder.key! :data
-      builder.yield!(required: false)
-    end
-
-    assert_equal({ 'data' => nil }, JSON.parse(builder.target!))
-  end
-
-  test "a second yield! emits null instead of raising when not required" do
-    output = render_streaming(
-      'json.object! { json.a 1 }',
-      layout_source: 'json.object! { json.key! :first; json.yield!; json.key! :second; json.yield!(required: false) }'
-    ).join
-
-    assert_equal({ 'first' => { 'a' => 1 }, 'second' => nil }, JSON.parse(output))
-  end
-
   test "yield! outside a layout raises" do
     view = ActionView::Base.with_empty_template_cache.new(ActionView::LookupContext.new([]), {}, nil)
     builder = TurboStreamer::Template.new(view)
 
-    assert_raises(TurboStreamer::Errors::NothingToYieldError) { builder.yield! }
+    assert_raises(TurboStreamer::Errors::NoTemplateToYieldError) { builder.yield! }
   end
 
   # A stream can't be replayed, and a yield! from inside the template would

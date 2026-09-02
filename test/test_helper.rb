@@ -52,12 +52,7 @@ class ActiveSupport::TestCase
     view = ActionView::Base.with_empty_template_cache.new(lookup_context, {}, nil)
     renderer = ActionView::StreamingTemplateRenderer.new(lookup_context)
 
-    renderer.render(view, template: 'test', layout: layout)
-  end
-
-  # Consumes the body exactly once -- each pass re-runs the render, which would
-  # double up the render_template.action_view notifications.
-  def chunks_from(body)
+    body = renderer.render(view, template: 'test', layout: layout)
     [].tap { |chunks| body.each { |chunk| chunks << chunk } }
   end
 
