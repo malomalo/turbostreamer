@@ -4,7 +4,7 @@ require 'test_helper'
 # below that use render_streaming go through StreamingTemplateRenderer; the
 # "without streaming" ones go through the ordinary TemplateRenderer, which is
 # what a controller uses by default. See streaming_test.rb for the renderer.
-class TurboStreamer::LayoutTest < ActiveSupport::TestCase
+class RailsIntegration::LayoutTest < ActiveSupport::TestCase
 
   test "a layout wraps the template it yields to without streaming" do
     output = render_template(

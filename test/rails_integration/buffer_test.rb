@@ -1,6 +1,6 @@
 require 'test_helper'
 
-class TurboStreamer::BufferTest < ActiveSupport::TestCase
+class RailsIntegration::BufferTest < ActiveSupport::TestCase
 
   # The whole point of TurboStreamer::Buffer: ActionView's buffers are left
   # alone. If this fails, something has started monkeypatching them again.

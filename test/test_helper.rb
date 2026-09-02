@@ -23,6 +23,11 @@ end
 # used, so this is only the boot half of what a real app does.
 TurboStreamer::Railtie.initializers.each(&:run)
 
+# Tests under test/rails_integration exercise TurboStreamer through ActionView
+# -- the template handler, the renderers, buffers and layouts -- rather than the
+# builder on its own.
+module RailsIntegration; end
+
 class ActiveSupport::TestCase
 
   def jbuild(*args, &block)

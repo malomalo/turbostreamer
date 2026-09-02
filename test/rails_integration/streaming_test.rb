@@ -2,7 +2,7 @@ require 'test_helper'
 
 # Exercises ActionView::StreamingTemplateRenderer, the path a controller takes
 # for `render stream: true`. See layout_test.rb for what a layout does with it.
-class TurboStreamer::StreamingTest < ActiveSupport::TestCase
+class RailsIntegration::StreamingTest < ActiveSupport::TestCase
 
   test "streams a template through StreamingTemplateRenderer" do
     body = render_streaming('json.object! { json.a 1; json.b "two" }')
