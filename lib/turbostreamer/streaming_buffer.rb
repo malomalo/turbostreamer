@@ -25,11 +25,6 @@ class TurboStreamer
     alias_method :append=, :write
     alias_method :safe_append=, :write
 
-    # Chunks are handed off as they arrive; nothing is held back here.
-    def flush
-      self
-    end
-
   end
 
 end

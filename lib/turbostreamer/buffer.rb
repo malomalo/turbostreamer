@@ -41,11 +41,6 @@ class TurboStreamer
     alias_method :append=, :write
     alias_method :safe_append=, :write
 
-    # Encoders flush their own buffers; there is nothing held back here.
-    def flush
-      self
-    end
-
     def to_s
       @buffer.to_s
     end
