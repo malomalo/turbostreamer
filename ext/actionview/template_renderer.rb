@@ -15,7 +15,13 @@ class TurboStreamer
       def render_template(view, template, layout_name, locals)
         return super unless layout_name && template.respond_to?(:handler) && template.handler == TurboStreamer::Handler
 
+        # find_layout returns nil when the layout exists in another format but
+        # not this one -- an app with layouts/application.html.erb and no JSON
+        # layout. It only raises MissingTemplate when there is no layout by that
+        # name in any format.
         layout = find_layout(layout_name, locals.keys, [formats.first])
+        return super unless layout
+
         body = ActiveSupport::Notifications.instrument(
           "render_layout.action_view",
           identifier: layout.identifier

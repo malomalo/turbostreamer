@@ -72,4 +72,16 @@ class ActiveSupport::TestCase
     renderer.render(view, template: 'test', layout: layout).body
   end
 
+  # Like render_template, but the fixture set is given explicitly -- for the
+  # cases where the layout is in another format, or absent.
+  def render_with_files(files, layout:)
+    lookup_context = ActionView::LookupContext.new(
+      ActionView::PathSet.new([ActionView::FixtureResolver.new(files)]),
+      formats: [:json], handlers: [:streamer, :erb]
+    )
+    view = ActionView::Base.with_empty_template_cache.new(lookup_context, {}, nil)
+
+    ActionView::TemplateRenderer.new(lookup_context).render(view, template: 'test', layout: layout).body
+  end
+
 end

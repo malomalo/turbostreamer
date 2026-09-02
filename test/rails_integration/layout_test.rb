@@ -37,6 +37,28 @@ class RailsIntegration::LayoutTest < ActiveSupport::TestCase
     assert_equal({ 'a' => 1 }, JSON.parse(render_template('json.object! { json.a 1 }', layout: nil)))
   end
 
+  # find_layout resolves a layout that exists in another format to nil rather
+  # than raising -- an app with layouts/application.html.erb and no JSON layout.
+  # Render without one, the way ActionView itself does.
+  test "a layout that exists only in another format is skipped" do
+    body = render_with_files(
+      { 'test.json.streamer' => 'json.object! { json.a 1 }',
+        'layouts/app.html.erb' => '[<%= yield %>]' },
+      layout: 'layouts/app'
+    )
+
+    assert_equal({ 'a' => 1 }, JSON.parse(body))
+  end
+
+  test "a layout that exists in no format still raises" do
+    assert_raises(ActionView::MissingTemplate) do
+      render_with_files(
+        { 'test.json.streamer' => 'json.object! { json.a 1 }' },
+        layout: 'layouts/nope'
+      )
+    end
+  end
+
   test "a layout wraps the template it yields to" do
     output = render_streaming(
       'json.object! { json.a 1; json.b "two" }',
