@@ -11,36 +11,18 @@ class TurboStreamer
   module StreamingTemplateRendererExtension
 
     def render_template(view, template, layout_name = nil, locals = {})
-      template_supports_streaming = (layout_name && template.supports_streaming?) || template.handler == TurboStreamer::Handler
-      return render_without_streaming(view, template, layout_name, locals) unless layout_name && template_supports_streaming
-
+      return super unless template.handler == TurboStreamer::Handler
+        
       locals ||= {}
       layout = find_layout(layout_name, locals.keys, [formats.first])
       log_skipped_layout(layout_name) if layout.nil?
 
       ActionView::StreamingTemplateRenderer::Body.new do |buffer|
-        if template.handler == TurboStreamer::Handler
-          delayed_render_json(buffer, template, layout, view, locals)
-        else
-          delayed_render(buffer, template, layout, view, locals)
-        end
+        delayed_render_json(buffer, template, layout, view, locals)
       end
     end
 
     private
-
-      # Deliberately not `super`. Prepending puts ActionView's own streaming
-      # render_template next in the chain, and for a streamer template that
-      # takes the ERB streaming path. What is wanted is the plain
-      # TemplateRenderer implementation -- which TemplateRendererExtension
-      # fronts, so the layout handling still applies -- wrapped as a Rack body.
-      def render_without_streaming(view, template, layout_name, locals)
-        rendered = ActionView::TemplateRenderer
-          .instance_method(:render_template)
-          .bind_call(self, view, template, layout_name, locals)
-
-        [rendered.body]
-      end
 
       def delayed_render_json(buffer, template, layout, view, locals)
         # Wrap the given buffer in the StreamingBuffer and pass it to the
@@ -57,16 +39,12 @@ class TurboStreamer
           locals: locals
         ) do
           if layout
-            render_json_layout(output, template, layout, view, locals, yielder)
+            TurboStreamer::Template.render_with_layout(view, layout, locals, output) do
+              template.render(view, locals, output, &yielder)
+            end
           else
             template.render(view, locals, output, &yielder)
           end
-        end
-      end
-
-      def render_json_layout(output, template, layout, view, locals, yielder)
-        TurboStreamer::Template.render_with_layout(view, layout, locals, output) do
-          template.render(view, locals, output, &yielder)
         end
       end
 
