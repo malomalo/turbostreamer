@@ -9,6 +9,7 @@ module ActionView
 
       locals ||= {}
       layout   = layout_name && find_layout(layout_name, locals.keys, [formats.first])
+      log_skipped_layout(layout_name) if layout_name && layout.nil?
 
       Body.new do |buffer|
         if template.handler == TurboStreamer::Handler

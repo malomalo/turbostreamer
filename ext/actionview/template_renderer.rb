@@ -20,7 +20,10 @@ class TurboStreamer
         # layout. It only raises MissingTemplate when there is no layout by that
         # name in any format.
         layout = find_layout(layout_name, locals.keys, [formats.first])
-        return super unless layout
+        unless layout
+          log_skipped_layout(layout_name)
+          return super
+        end
 
         body = ActiveSupport::Notifications.instrument(
           "render_layout.action_view",
@@ -39,6 +42,25 @@ class TurboStreamer
         end
 
         build_rendered_template(body, template)
+      end
+
+      # A layout that exists in another format resolves to nil rather than
+      # raising, so a layout saved with the wrong extension is skipped with no
+      # signal at all. Rails renders bare here and so do we -- an app that
+      # declares `layout "application"` explicitly hands us that name on every
+      # format, including ones it has no layout for -- but say so.
+      #
+      # Debug rather than warn: in that same app this fires on every JSON
+      # request, and it is only worth reading while you are wondering where
+      # your layout went.
+      def log_skipped_layout(layout_name)
+        logger = ActionView::Base.logger
+        return unless logger
+
+        logger.debug do
+          "  Skipped layout #{layout_name} -- it does not exist for " \
+          "#{formats.first.inspect}; rendering without a layout"
+        end
       end
 
   end

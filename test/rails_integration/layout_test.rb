@@ -50,6 +50,24 @@ class RailsIntegration::LayoutTest < ActiveSupport::TestCase
     assert_equal({ 'a' => 1 }, JSON.parse(body))
   end
 
+  test "skipping a layout for the wrong format is logged" do
+    io = StringIO.new
+    previous, ActionView::Base.logger = ActionView::Base.logger, Logger.new(io, level: Logger::DEBUG)
+
+    begin
+      render_with_files(
+        { 'test.json.streamer' => 'json.object! { json.a 1 }',
+          'layouts/app.html.erb' => '[<%= yield %>]' },
+        layout: 'layouts/app'
+      )
+    ensure
+      ActionView::Base.logger = previous
+    end
+
+    assert_match 'Skipped layout layouts/app', io.string
+    assert_match ':json', io.string
+  end
+
   test "a layout that exists in no format still raises" do
     assert_raises(ActionView::MissingTemplate) do
       render_with_files(

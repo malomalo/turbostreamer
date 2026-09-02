@@ -2,6 +2,7 @@
 # installed gem
 $LOAD_PATH << File.expand_path('../lib', __FILE__)
 
+require 'json'
 require "minitest/reporters"
 Minitest::Reporters.use! Minitest::Reporters::SpecReporter.new
 
@@ -27,6 +28,14 @@ TurboStreamer::Railtie.initializers.each(&:run)
 # -- the template handler, the renderers, buffers and layouts -- rather than the
 # builder on its own.
 module RailsIntegration; end
+
+# ActionView's LogSubscriber resolves paths against Rails.root, so any test that
+# sets a logger needs it.
+module Rails
+  def self.root
+    @root ||= File.expand_path('../..', __FILE__)
+  end
+end
 
 class ActiveSupport::TestCase
 
