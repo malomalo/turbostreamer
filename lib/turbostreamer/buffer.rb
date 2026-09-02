@@ -11,10 +11,12 @@ class TurboStreamer
   # ActionView::StreamingBuffer. That worked, but it added a non-escaping
   # append to every buffer in the host application rather than just the ones
   # rendering JSON. Wrapping keeps the shim on objects we own.
+  #
+  # See TurboStreamer::StreamingBuffer for the streaming counterpart.
   class Buffer
 
-    # Anything that already speaks IO -- a StringIO, a real IO, or one of the
-    # buffers below -- is handed back untouched.
+    # Anything that already speaks IO -- a StringIO, a real IO, or a
+    # StreamingBuffer -- is handed back untouched.
     def self.wrap(buffer)
       buffer.respond_to?(:write) ? buffer : new(buffer)
     end
@@ -46,32 +48,6 @@ class TurboStreamer
 
     def to_s
       @buffer.to_s
-    end
-
-  end
-
-  # Hands each chunk to a block as it is encoded rather than accumulating it,
-  # so the streaming template renderer can push straight to the client. This
-  # was ActionView::JSONStreamingBuffer.
-  class StreamingBuffer
-
-    def initialize(block)
-      @block = block
-    end
-
-    def write(value)
-      string = value.to_s
-      @block.call(string)
-      string.bytesize
-    end
-    alias_method :<<, :write
-    alias_method :concat, :write
-    alias_method :safe_concat, :write
-    alias_method :append=, :write
-    alias_method :safe_append=, :write
-
-    def flush
-      self
     end
 
   end
