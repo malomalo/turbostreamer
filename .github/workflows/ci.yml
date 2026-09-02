@@ -6,22 +6,25 @@ on:
   pull_request:
     branches: [ master ]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   turbostreamer:
-    name: CI
-    runs-on: ubuntu-latest
+    name: TurboStreamer Test
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
         ruby-version:
-          - '3.3'
-          - '3.4'
-          - '4.0.0-preview2'
+          - "3.3"
+          - "3.4"
+          - "4.0"
         rails-version:
-          - 7.1
-          - 7.2
-          - 8.0
-          - 8.1
+          - "7.2"
+          - "8.0"
+          - "8.1"
         encoder:
           - oj
           - wankel
@@ -34,18 +37,15 @@ jobs:
           cd 'yajl-2.1.0' && ./configure && make && sudo make install
           sudo ldconfig
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - run: |
-          echo ""  >> Gemfile
-          echo 'gem "rails", "${{ matrix.rails-version }}"' >> Gemfile
-
-      - name: Add logger for Ruby 3.5 (no longer bundled gem, drop when rails adds)
+      # Must run before ruby/setup-ruby so bundler-cache installs and caches
+      # against the pinned Gemfile.
+      - name: Pin Rails
         run: |
-          echo ""  >> Gemfile
-          echo 'gem "logger"' >> Gemfile
-          echo ""  >> Gemfile
-          echo 'gem "benchmark"' >> Gemfile
+          echo "" >> Gemfile
+          echo 'gem "rails", "~> ${{ matrix.rails-version }}.0"' >> Gemfile
+          grep -q 'gem "rails", "~> ${{ matrix.rails-version }}.0"' Gemfile || { echo "ERROR: Rails pin not appended to Gemfile"; exit 1; }
 
       - uses: ruby/setup-ruby@v1
         with:
