@@ -29,7 +29,14 @@ module ActionView
         output  = TurboStreamer::StreamingBuffer.new(buffer)
         yielder = lambda { |*name| view._layout_for(*name) }
       
-        instrument(:template, identifier: template.identifier, layout: layout.try(:virtual_path)) do
+        # AbstractRenderer#instrument was removed in Rails 6.1, so notify
+        # directly the way ActionView's own delayed_render does.
+        ActiveSupport::Notifications.instrument(
+          "render_template.action_view",
+          identifier: template.identifier,
+          layout: layout && layout.virtual_path,
+          locals: locals
+        ) do
           fiber = Fiber.new do
             template.render(view, locals, output, &yielder)
           end

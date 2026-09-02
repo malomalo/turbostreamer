@@ -8,6 +8,10 @@ Unreleased
 * Add Rails 7.2, 8.0 & 8.1 to CI; drop support for Rails < 7.2 and Ruby < 3.3
 * Package `LICENSE` and `CHANGELOG.md` with the gem, and fix `spec.files` dropping
   everything but `README.md` when the gem is built on a shell without brace expansion
+* Fix streaming JSON raising `NoMethodError: undefined method 'instrument'`.
+  `AbstractRenderer#instrument` was removed in Rails 6.1, so every streamed
+  render failed -- silently, since `Body#each` rescues and substitutes an error
+  page. It now notifies `render_template.action_view` directly.
 * Stop aliasing `write` onto `ActionView::OutputBuffer` and
   `ActionView::StreamingBuffer`. The encoders now stream into `TurboStreamer::Buffer`,
   which wraps the ActionView buffer instead of patching it, so the non-escaping
