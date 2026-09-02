@@ -5,9 +5,21 @@ require 'test_helper'
 class RailsIntegration::StreamingTest < ActiveSupport::TestCase
 
   test "streams a template through StreamingTemplateRenderer" do
-    body = render_streaming('json.object! { json.a 1; json.b "two" }').join
+    resolver = ActionView::FixtureResolver.new(
+      'test.json.streamer' => 'json.object! { json.a 1; json.b "two" }',
+      'layouts/app.json.streamer' => 'json.yield!'
+    )
+    lookup_context = ActionView::LookupContext.new(
+      ActionView::PathSet.new([resolver]), formats: [:json], handlers: [:streamer]
+    )
+    view = ActionView::Base.with_empty_template_cache.new(lookup_context, {}, nil)
+    renderer = ActionView::StreamingTemplateRenderer.new(lookup_context)
+  
+    body = renderer.render(view, template: 'test', layout: 'layouts/app')
+    output = [].tap { |chunks| body.each { |chunk| chunks << chunk } }
 
-    assert_equal({ 'a' => 1, 'b' => 'two' }, JSON.parse(body))
+    assert_kind_of ActionView::StreamingTemplateRenderer::Body, body
+    assert_equal({ 'a' => 1, 'b' => 'two' }, JSON.parse(output.join()))
   end
 
   # Body#each rescues Exception and substitutes an error page, so a raise inside
@@ -48,13 +60,15 @@ class RailsIntegration::StreamingTest < ActiveSupport::TestCase
     assert_equal 2_000, JSON.parse(chunks.join).size
   end
 
-  # Streaming only engages when a layout is present; without one the renderer
-  # falls back to a fully buffered Array.
-  test "without a layout the response is buffered rather than streamed" do
-    body = render_streaming('json.object! { json.a 1 }', layout: nil)
+  # Streaming does not depend on there being a layout. Arriving in more than
+  # one chunk is only possible if the response really was streamed.
+  test "a template streams without a layout" do
+    source = 'json.array! { 2_000.times { |i| json.child! { json.object! { json.index i } } } }'
+    chunks = render_streaming(source, layout: nil)
 
-    refute_kind_of ActionView::StreamingTemplateRenderer::Body, body
-    assert_equal({ 'a' => 1 }, JSON.parse(body.join))
+    assert_operator chunks.size, :>, 1,
+      'expected the response to arrive in multiple chunks with no layout'
+    assert_equal 2_000, JSON.parse(chunks.join).size
   end
 
 end
