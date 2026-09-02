@@ -26,7 +26,7 @@ module ActionView
         # underlying template handler. Now, every time something is concatenated
         # to the buffer, it is not appended to an array, but streamed straight
         # to the client.
-        output  = ActionView::JSONStreamingBuffer.new(buffer)
+        output  = TurboStreamer::StreamingBuffer.new(buffer)
         yielder = lambda { |*name| view._layout_for(*name) }
       
         instrument(:template, identifier: template.identifier, layout: layout.try(:virtual_path)) do
