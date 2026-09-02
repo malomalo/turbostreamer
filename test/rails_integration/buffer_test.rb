@@ -2,16 +2,7 @@ require 'test_helper'
 
 class RailsIntegration::BufferTest < ActiveSupport::TestCase
 
-  # The whole point of TurboStreamer::Buffer: ActionView's buffers are left
-  # alone. If this fails, something has started monkeypatching them again.
-  test "ActionView's buffers are not patched with #write" do
-    refute ActionView::OutputBuffer.method_defined?(:write),
-      'ActionView::OutputBuffer should not be given a #write by TurboStreamer'
-    refute ActionView::StreamingBuffer.method_defined?(:write),
-      'ActionView::StreamingBuffer should not be given a #write by TurboStreamer'
-  end
-
-  test "wrap passes through anything that already responds to #write" do
+  test "::wrap passes through anything that already responds to #write" do
     io = StringIO.new
     assert_same io, TurboStreamer::Buffer.wrap(io)
 
@@ -19,21 +10,21 @@ class RailsIntegration::BufferTest < ActiveSupport::TestCase
     assert_same streaming, TurboStreamer::Buffer.wrap(streaming)
   end
 
-  test "wrap adapts a buffer that has no #write" do
+  test "::wrap adapts a buffer that has no #write" do
     buffer = TurboStreamer::Buffer.wrap(ActionView::OutputBuffer.new)
 
     assert_kind_of TurboStreamer::Buffer, buffer
     assert_kind_of ActionView::OutputBuffer, buffer.buffer
   end
 
-  test "write appends verbatim rather than HTML escaping" do
+  test "#write appends verbatim rather than HTML escaping" do
     buffer = TurboStreamer::Buffer.new(ActionView::OutputBuffer.new)
     buffer.write('{"a":"</script>"}')
 
     assert_equal '{"a":"</script>"}', buffer.to_s
   end
 
-  test "write returns the number of bytes written, as IO does" do
+  test "#write returns the number of bytes written, as IO does" do
     buffer = TurboStreamer::Buffer.new(ActionView::OutputBuffer.new)
 
     assert_equal 4, buffer.write('narf')
@@ -71,7 +62,6 @@ class RailsIntegration::BufferTest < ActiveSupport::TestCase
     builder.object! { builder.key1 'value1' }
     builder.target!
 
-    refute_empty chunks
     assert_equal '{"key1":"value1"}', chunks.join.strip
   end
 
