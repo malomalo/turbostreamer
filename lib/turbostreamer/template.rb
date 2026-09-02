@@ -37,6 +37,28 @@ class TurboStreamer::Template < TurboStreamer
     end
   end
 
+  # Renders the template this layout wraps, writing into the same builder so its
+  # JSON lands exactly where the layout yields.
+  #
+  # Example:
+  #
+  #   # app/views/layouts/application.json.streamer
+  #   json.object! do
+  #     json.meta do
+  #       json.object! { json.version 1 }
+  #     end
+  #     json.key! :data
+  #     json.yield!
+  #   end
+  #
+  #   { "meta": { "version": 1 }, "data": { ... the template ... } }
+  def yield!
+    content = @context.instance_variable_get(:@_turbostreamer_content)
+    raise Errors::NothingToYieldError.build if content.nil?
+
+    content.call(self)
+  end
+
   def array!(collection = BLANK, *attributes, &block)
     options = attributes.extract_options!
 

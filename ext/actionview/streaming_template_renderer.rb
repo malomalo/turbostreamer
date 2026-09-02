@@ -28,20 +28,43 @@ module ActionView
         # to the client.
         output  = TurboStreamer::StreamingBuffer.new(buffer)
         yielder = lambda { |*name| view._layout_for(*name) }
-      
+
         ActiveSupport::Notifications.instrument(
           "render_template.action_view",
           identifier: template.identifier,
           layout: layout && layout.virtual_path,
           locals: locals
         ) do
-          fiber = Fiber.new do
+          if layout
+            render_json_layout(output, template, layout, view, locals, yielder)
+          else
             template.render(view, locals, output, &yielder)
           end
-
-          fiber.resume
         end
 
+      end
+
+      # Renders the layout, and lets its `json.yield!` render the template into
+      # the same builder. Both write to one encoder, so the template's JSON
+      # lands where the layout yielded with its commas and nesting intact --
+      # nothing is buffered into a string and spliced back in.
+      def render_json_layout(output, template, layout, view, locals, yielder)
+        view.instance_variable_set(:@_turbostreamer_content, lambda do |json|
+          # Single use: a stream can't be replayed, so a second yield! -- or one
+          # from inside the template itself, which would recurse forever --
+          # raises rather than rendering twice.
+          view.instance_variable_set(:@_turbostreamer_content, nil)
+          begin
+            view.instance_variable_set(:@_turbostreamer_builder, json)
+            template.render(view, locals, output, &yielder)
+          ensure
+            view.instance_variable_set(:@_turbostreamer_builder, nil)
+          end
+        end)
+
+        layout.render(view, locals, output, &yielder)
+      ensure
+        view.instance_variable_set(:@_turbostreamer_content, nil)
       end
 
   end

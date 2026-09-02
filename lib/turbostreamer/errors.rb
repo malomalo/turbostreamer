@@ -8,5 +8,11 @@ class TurboStreamer
         new(message)
       end
     end
+
+    class NothingToYieldError < ::StandardError
+      def self.build
+        new("`yield!` was called outside a layout, so there is no template to render")
+      end
+    end
   end
 end

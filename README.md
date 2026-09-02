@@ -191,6 +191,45 @@ json.partial! partial: 'posts/post', collection: @posts, as: :post
 json.comments @post.comments, partial: 'comment/comment', as: :comment
 ```
 
+### Layouts
+
+When a response is streamed with `render stream: true`, a `.json.streamer`
+layout can wrap the template. Call `json.yield!` where the template's JSON
+should go:
+
+```ruby
+# app/views/layouts/application.json.streamer
+json.object! do
+  json.meta do
+    json.object! { json.version 1 }
+  end
+  json.key! :data
+  json.yield!
+end
+
+# app/views/posts/index.json.streamer
+json.array! @posts, :id, :title
+
+# => { "meta": { "version": 1 }, "data": [ { "id": 1, "title": "..." } ] }
+```
+
+The layout and the template share one builder, so the template writes straight
+into the same stream at the point it is yielded — nothing is buffered into a
+string and spliced back in, and a large response still arrives in chunks.
+
+`json.yield!` can appear anywhere a value can, including inside an array:
+
+```ruby
+json.array! do
+  json.child! { json.object! { json.first true } }
+  json.child! { json.yield! }
+end
+```
+
+Because a stream cannot be replayed, the template renders once. A second
+`json.yield!` — or one from inside the template itself — raises
+`TurboStreamer::Errors::NothingToYieldError` rather than rendering twice.
+
 You can explicitly make TurboStreamer object return null if you want:
 
 ``` ruby
