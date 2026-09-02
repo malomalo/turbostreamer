@@ -18,6 +18,11 @@ if ENV["TSENCODER"]
   TurboStreamer.set_default_encoder(:json, ENV["TSENCODER"].to_sym)
 end
 
+# Registers the template handler and loads the ActionView extensions. The
+# on_load :action_view hook this schedules fires when ActionView::Base is first
+# used, so this is only the boot half of what a real app does.
+TurboStreamer::Railtie.initializers.each(&:run)
+
 class ActiveSupport::TestCase
 
   def jbuild(*args, &block)

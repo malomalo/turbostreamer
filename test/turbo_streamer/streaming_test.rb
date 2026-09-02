@@ -1,7 +1,5 @@
 require 'test_helper'
 
-TurboStreamer::Railtie.initializers.each(&:run)
-
 # Exercises ActionView::StreamingTemplateRenderer, the path a controller takes
 # for `render stream: true`. Nothing else in the suite reaches it, which is how
 # it stayed broken from Rails 6.1 onward without a test noticing.

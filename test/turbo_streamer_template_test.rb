@@ -31,8 +31,6 @@ blog_authors = [ 'David Heinemeier Hansson', 'Pavel Pravosud' ].cycle
 BLOG_POST_COLLECTION = 10.times.map{ |i| BlogPost.new(i+1, "post body #{i+1}", blog_authors.next) }
 COLLECTION_COLLECTION = 5.times.map{ |i| Collection.new(i+1, "collection #{i+1}") }
 
-TurboStreamer::Railtie.initializers.each(&:run)
-
 module Rails
   def self.cache
     @cache ||= ActiveSupport::Cache::MemoryStore.new
