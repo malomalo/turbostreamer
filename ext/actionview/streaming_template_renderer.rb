@@ -29,8 +29,6 @@ module ActionView
         output  = TurboStreamer::StreamingBuffer.new(buffer)
         yielder = lambda { |*name| view._layout_for(*name) }
       
-        # AbstractRenderer#instrument was removed in Rails 6.1, so notify
-        # directly the way ActionView's own delayed_render does.
         ActiveSupport::Notifications.instrument(
           "render_template.action_view",
           identifier: template.identifier,
