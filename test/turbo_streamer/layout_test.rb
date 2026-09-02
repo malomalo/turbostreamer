@@ -77,6 +77,17 @@ class TurboStreamer::LayoutTest < ActiveSupport::TestCase
     assert_equal 2_000, JSON.parse(chunks.join)['data'].size
   end
 
+  # The template is written into the stream, not returned, so it can't be placed
+  # by the keyword. Without a block this failed as a bare "no block given".
+  test "the yield keyword in a layout points at yield!" do
+    error = assert_raises(ActionView::Template::Error) do
+      render_template('json.object! { json.a 1 }', layout_source: 'json.object! { json.data yield }')
+    end
+
+    assert_kind_of TurboStreamer::Errors::YieldKeywordError, error.cause
+    assert_match 'json.yield!', error.cause.message
+  end
+
   test "yield! outside a layout raises" do
     view = ActionView::Base.with_empty_template_cache.new(ActionView::LookupContext.new([]), {}, nil)
     builder = TurboStreamer::Template.new(view)

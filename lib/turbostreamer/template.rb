@@ -36,10 +36,14 @@ class TurboStreamer::Template < TurboStreamer
       end
     end)
 
+    # Without a block a bare `yield` in the layout fails as `no block given`,
+    # which says nothing useful. Point at json.yield! instead.
+    keyword_yield = lambda { |*| raise Errors::YieldKeywordError.build }
+
     if buffer
-      layout.render(context, locals, buffer)
+      layout.render(context, locals, buffer, &keyword_yield)
     else
-      layout.render(context, locals)
+      layout.render(context, locals, &keyword_yield)
     end
   ensure
     context.instance_variable_set(:@_turbostreamer_content, nil)

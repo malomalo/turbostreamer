@@ -235,6 +235,41 @@ Because a stream cannot be replayed, the template renders once. A second
 `json.yield!` — or one from inside the template itself — raises
 `TurboStreamer::Errors::NothingToYieldError` rather than rendering twice.
 
+#### Why `json.yield!` and not `yield`
+
+`yield` is a Ruby keyword that returns a value, and the template's JSON is
+never a value here — it is written into the stream at the position the layout
+has reached. Placing it therefore has to go through the builder:
+
+```ruby
+json.key! :data
+json.yield!          # writes the template's JSON as the value of "data"
+```
+
+If `yield` were used instead, `json.data yield` would read as though it
+assigned the template to `"data"`, when in fact it would write the template's
+JSON first and then set `"data"` to whatever `yield` returned. `json.yield!`
+also matches the rest of the DSL, where the methods that write something end in
+`!` — `object!`, `array!`, `child!`, `partial!`, `merge!`, `cache!`. A bare
+`yield` in a `.json.streamer` layout raises
+`TurboStreamer::Errors::YieldKeywordError`.
+
+#### Layouts are not ERB layouts
+
+Two differences worth knowing:
+
+* **The layout renders first.** `json.yield!` renders the template it wraps.
+  An ERB layout is the other way around: the template is rendered up front and
+  the layout concatenates the resulting string. Reversing it is what lets the
+  template write into the layout's builder instead of being encoded to a string
+  and spliced back in — which neither encoder can do into a keyed slot.
+* **There is one yield, and it has no name.** `content_for` / `provide` have no
+  analogue, and a layout cannot ask for content the template defines later. In
+  ERB that works because the layout runs in a Fiber and suspends until the
+  template provides the key; here the layout calls the template directly, so
+  there is nothing to suspend. A JSON document's shape is positional, so one
+  yield in one place is generally what you want.
+
 You can explicitly make TurboStreamer object return null if you want:
 
 ``` ruby
