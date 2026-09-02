@@ -8,8 +8,10 @@ Gem::Specification.new do |spec|
   spec.email         = ["jonbracy@gmail.com"]
   spec.homepage      = "https://github.com/malomalo/turbostreamer"
   spec.summary       = 'Stream JSON via a Builder-style DSL'
-  spec.description   = 'TurboStreamer is a JBuilder-like DSL for building ' \
-                       'JSON that streams directly to a string or IO'
+  spec.description   = <<~DESC
+    TurboStreamer is a JBuilder-like DSL for building
+    JSON that streams directly to a string or IO
+  DESC
 
   spec.metadata = {
     'source_code_uri'       => spec.homepage,
@@ -21,10 +23,6 @@ Gem::Specification.new do |spec|
   spec.extra_rdoc_files = %w(README.md)
   spec.rdoc_options.concat ['--main', 'README.md']
 
-  # Pass directories rather than brace globs: `{lib,ext}/*` relies on brace
-  # expansion, which dash (/bin/sh on Debian & Ubuntu) does not implement, so
-  # git would receive a literal pathspec, match nothing, and exit 0 -- silently
-  # building a gem containing only README.md.
   spec.files         = `git ls-files -z -- README.md LICENSE CHANGELOG.md lib ext`.split("\x0")
   spec.require_paths = ["lib"]
 
