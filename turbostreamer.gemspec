@@ -23,7 +23,7 @@ Gem::Specification.new do |spec|
   spec.extra_rdoc_files = %w(README.md)
   spec.rdoc_options.concat ['--main', 'README.md']
 
-  spec.files         = `git ls-files -z -- README.md LICENSE CHANGELOG.md lib ext`.split("\x0")
+  spec.files         = `git ls-files -z -- README.md LICENSE CHANGELOG.md lib`.split("\x0")
   spec.require_paths = ["lib"]
 
   spec.required_ruby_version = '>= 3.3.0'

@@ -65,5 +65,3 @@ class TurboStreamer
 
   end
 end
-
-ActionView::TemplateRenderer.prepend(TurboStreamer::TemplateRendererExtension)

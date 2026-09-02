@@ -29,7 +29,6 @@ namespace :test do
     require 'simplecov'
     SimpleCov.start do
       add_group 'lib', 'lib'
-      add_group 'ext', 'ext'
       add_filter "/test"
     end
   end
