@@ -4,8 +4,7 @@ class TurboStreamer
   module Errors
     class MergeError < ::StandardError
       def self.build(updates)
-        message = "Can't merge #{updates.inspect} which isn't Hash or Array"
-        new(message)
+        new("Can't merge #{updates.inspect} which isn't Hash or Array")
       end
     end
 
@@ -15,11 +14,9 @@ class TurboStreamer
       end
     end
 
-    class YieldKeywordError < ::StandardError
+    class YieldError < ::StandardError
       def self.build
-        new("use `json.yield!` in a .json.streamer layout, not `yield`. The " \
-            "template is written into the stream where it is yielded, so it " \
-            "has to be placed by the builder rather than returned as a value.")
+        new("use `json.yield!` in a .json.streamer layout, `yield` is not supported")
       end
     end
   end

@@ -252,7 +252,7 @@ JSON first and then set `"data"` to whatever `yield` returned. `json.yield!`
 also matches the rest of the DSL, where the methods that write something end in
 `!` — `object!`, `array!`, `child!`, `partial!`, `merge!`, `cache!`. A bare
 `yield` in a `.json.streamer` layout raises
-`TurboStreamer::Errors::YieldKeywordError`.
+`TurboStreamer::Errors::YieldError`.
 
 #### Layouts are not ERB layouts
 

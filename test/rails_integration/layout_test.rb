@@ -84,7 +84,7 @@ class RailsIntegration::LayoutTest < ActiveSupport::TestCase
       render_template('json.object! { json.a 1 }', layout_source: 'json.object! { json.data yield }')
     end
 
-    assert_kind_of TurboStreamer::Errors::YieldKeywordError, error.cause
+    assert_kind_of TurboStreamer::Errors::YieldError, error.cause
     assert_match 'json.yield!', error.cause.message
   end
 
