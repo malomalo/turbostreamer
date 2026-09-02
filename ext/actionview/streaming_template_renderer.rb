@@ -44,27 +44,10 @@ module ActionView
 
       end
 
-      # Renders the layout, and lets its `json.yield!` render the template into
-      # the same builder. Both write to one encoder, so the template's JSON
-      # lands where the layout yielded with its commas and nesting intact --
-      # nothing is buffered into a string and spliced back in.
       def render_json_layout(output, template, layout, view, locals, yielder)
-        view.instance_variable_set(:@_turbostreamer_content, lambda do |json|
-          # Single use: a stream can't be replayed, so a second yield! -- or one
-          # from inside the template itself, which would recurse forever --
-          # raises rather than rendering twice.
-          view.instance_variable_set(:@_turbostreamer_content, nil)
-          begin
-            view.instance_variable_set(:@_turbostreamer_builder, json)
-            template.render(view, locals, output, &yielder)
-          ensure
-            view.instance_variable_set(:@_turbostreamer_builder, nil)
-          end
-        end)
-
-        layout.render(view, locals, output, &yielder)
-      ensure
-        view.instance_variable_set(:@_turbostreamer_content, nil)
+        TurboStreamer::Template.render_with_layout(view, layout, locals, output) do
+          template.render(view, locals, output, &yielder)
+        end
       end
 
   end

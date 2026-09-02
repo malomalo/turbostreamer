@@ -56,4 +56,20 @@ class ActiveSupport::TestCase
     [].tap { |chunks| body.each { |chunk| chunks << chunk } }
   end
 
+  # Renders through the ordinary ActionView::TemplateRenderer -- what a
+  # controller does without `stream: true`. Returns the rendered String.
+  def render_template(source, layout: 'layouts/app', layout_source: 'json.yield!')
+    resolver = ActionView::FixtureResolver.new(
+      'test.json.streamer' => source,
+      'layouts/app.json.streamer' => layout_source
+    )
+    lookup_context = ActionView::LookupContext.new(
+      ActionView::PathSet.new([resolver]), formats: [:json], handlers: [:streamer]
+    )
+    view = ActionView::Base.with_empty_template_cache.new(lookup_context, {}, nil)
+    renderer = ActionView::TemplateRenderer.new(lookup_context)
+
+    renderer.render(view, template: 'test', layout: layout).body
+  end
+
 end

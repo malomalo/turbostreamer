@@ -11,6 +11,7 @@ class TurboStreamer
       ActiveSupport.on_load :action_view do
         # Require turbostreamer in here so it's only loaded if needed
         require 'turbostreamer'
+        require File.expand_path('../../../ext/actionview/template_renderer', __FILE__)
         require File.expand_path('../../../ext/actionview/streaming_template_renderer', __FILE__)
 
         # Register Turbostreamer with Rails

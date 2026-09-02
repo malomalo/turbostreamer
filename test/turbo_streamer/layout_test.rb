@@ -1,8 +1,41 @@
 require 'test_helper'
 
-# Layouts only engage on the streaming path, so these all render through
-# StreamingTemplateRenderer. See streaming_test.rb for the renderer itself.
+# Layouts work the same whether or not the response is streamed. The tests
+# below that use render_streaming go through StreamingTemplateRenderer; the
+# "without streaming" ones go through the ordinary TemplateRenderer, which is
+# what a controller uses by default. See streaming_test.rb for the renderer.
 class TurboStreamer::LayoutTest < ActiveSupport::TestCase
+
+  test "a layout wraps the template it yields to without streaming" do
+    output = render_template(
+      'json.object! { json.a 1; json.b "two" }',
+      layout_source: 'json.object! { json.meta 1; json.key! :data; json.yield! }'
+    )
+
+    assert_equal({ 'meta' => 1, 'data' => { 'a' => 1, 'b' => 'two' } }, JSON.parse(output))
+  end
+
+  test "a layout can yield an array template without streaming" do
+    output = render_template(
+      'json.array! [1, 2, 3]',
+      layout_source: 'json.object! { json.key! :data; json.yield! }'
+    )
+
+    assert_equal({ 'data' => [1, 2, 3] }, JSON.parse(output))
+  end
+
+  test "a layout can yield in the middle of an array without streaming" do
+    output = render_template(
+      'json.object! { json.x 1 }',
+      layout_source: 'json.array! { json.child! { json.object! { json.f 1 } }; json.child! { json.yield! } }'
+    )
+
+    assert_equal([{ 'f' => 1 }, { 'x' => 1 }], JSON.parse(output))
+  end
+
+  test "a template without a layout is unaffected without streaming" do
+    assert_equal({ 'a' => 1 }, JSON.parse(render_template('json.object! { json.a 1 }', layout: nil)))
+  end
 
   test "a layout wraps the template it yields to" do
     output = chunks_from(render_streaming(

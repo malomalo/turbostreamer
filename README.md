@@ -193,9 +193,8 @@ json.comments @post.comments, partial: 'comment/comment', as: :comment
 
 ### Layouts
 
-When a response is streamed with `render stream: true`, a `.json.streamer`
-layout can wrap the template. Call `json.yield!` where the template's JSON
-should go:
+A `.json.streamer` layout can wrap the template. Call `json.yield!` where the
+template's JSON should go:
 
 ```ruby
 # app/views/layouts/application.json.streamer
@@ -215,7 +214,13 @@ json.array! @posts, :id, :title
 
 The layout and the template share one builder, so the template writes straight
 into the same stream at the point it is yielded — nothing is buffered into a
-string and spliced back in, and a large response still arrives in chunks.
+string and spliced back in. This works whether or not the response is streamed
+with `render stream: true`; when it is, a large response still arrives in
+chunks.
+
+Note that the layout renders *first*, and `json.yield!` renders the template it
+wraps. This is the reverse of an ERB layout, where the template is rendered up
+front and the layout concatenates the resulting string.
 
 `json.yield!` can appear anywhere a value can, including inside an array:
 

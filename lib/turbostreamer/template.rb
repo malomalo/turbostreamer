@@ -14,6 +14,36 @@ class TurboStreamer::Template < TurboStreamer
     @context = context
     super(*args, &block)
   end
+
+  # Renders a layout, threading the template it wraps through the view so the
+  # layout's `json.yield!` renders it into the layout's own builder. Both write
+  # to one encoder, so the yielded JSON lands in place with its commas and
+  # nesting intact instead of being buffered into a string and spliced back in.
+  #
+  # `render_inner` renders the wrapped template; the buffer, when given, is the
+  # streaming one both renders share.
+  def self.render_with_layout(context, layout, locals, buffer = nil, &render_inner)
+    context.instance_variable_set(:@_turbostreamer_content, lambda do |json|
+      # Single use: a stream can't be replayed, so a second yield! -- or one
+      # from inside the template itself, which would recurse forever -- raises
+      # rather than rendering twice.
+      context.instance_variable_set(:@_turbostreamer_content, nil)
+      begin
+        context.instance_variable_set(:@_turbostreamer_builder, json)
+        render_inner.call
+      ensure
+        context.instance_variable_set(:@_turbostreamer_builder, nil)
+      end
+    end)
+
+    if buffer
+      layout.render(context, locals, buffer)
+    else
+      layout.render(context, locals)
+    end
+  ensure
+    context.instance_variable_set(:@_turbostreamer_content, nil)
+  end
   
   def partial!(name_or_options, locals = {})
     if name_or_options.class.respond_to?(:model_name) && name_or_options.respond_to?(:to_partial_path)
