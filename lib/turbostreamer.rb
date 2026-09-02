@@ -8,7 +8,6 @@ class TurboStreamer
   autoload :Template, 'turbostreamer/template'
   autoload :KeyFormatter, 'turbostreamer/key_formatter'
   autoload :Errors, 'turbostreamer/errors'
-  autoload :Buffer, 'turbostreamer/buffer'
   autoload :StreamingBuffer, 'turbostreamer/streaming_buffer'
 
   BLANK = ::Object.new
@@ -335,10 +334,6 @@ class TurboStreamer
     @encoder.flush
 
     output = @encoder.output
-    # Hand back the buffer ActionView gave us, not our wrapper around it --
-    # Template#render only calls `to_s` on a result it recognizes as an
-    # ActionView::OutputBuffer.
-    output = output.buffer if ::TurboStreamer::Buffer === output
 
     if output.is_a?(::StringIO)
       output.string

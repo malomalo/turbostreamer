@@ -22,7 +22,7 @@ class TurboStreamer
       # template is compiled with `locals: []`, so a `json` local never binds.
       #
       # this juggling is required to keep line numbers right in the error
-      %{__already_defined = defined?(json) || (@_turbostreamer_builder && "layout"); json||=@_turbostreamer_builder||TurboStreamer::Template.new(self, output_buffer: TurboStreamer::Buffer.wrap(output_buffer)); #{source}
+      %{__already_defined = defined?(json) || (@_turbostreamer_builder && "layout"); json||=@_turbostreamer_builder||TurboStreamer::Template.new(self, output_buffer: TurboStreamer::ActionView::Buffer.wrap(output_buffer)); #{source}
         json.target! unless (__already_defined && __already_defined != "method")}
     end
     
