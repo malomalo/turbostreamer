@@ -1,5 +1,19 @@
 # Changelog
 
+Unreleased
+-----
+* Optimize internal `extract!` calls to save on memory allocation [PR #25](https://github.com/malomalo/turbostreamer/pull/25)
+* Add `frozen_string_literal` magic comments
+* Remove some old Rails code
+* Add Rails 7.2, 8.0 & 8.1 to CI; drop support for Rails < 7.2 and Ruby < 3.3
+* Package `LICENSE` and `CHANGELOG.md` with the gem, and fix `spec.files` dropping
+  everything but `README.md` when the gem is built on a shell without brace expansion
+
+1.11.0 - 2024-04-29
+-----
+* Fix timestamp precision for Rails [PR #24](https://github.com/malomalo/turbostreamer/pull/24)
+* Fix CI yajl archive download URL [PR #22](https://github.com/malomalo/turbostreamer/pull/22)
+
 1.10.0
 -----
 * Fixed Rails 6.1 & Ruby 3.0 Compatibility
