@@ -35,11 +35,6 @@ class TurboStreamer
       @buffer.safe_concat(string)
       string.bytesize
     end
-    alias_method :<<, :write
-    alias_method :concat, :write
-    alias_method :safe_concat, :write
-    alias_method :append=, :write
-    alias_method :safe_append=, :write
 
     def to_s
       @buffer.to_s
