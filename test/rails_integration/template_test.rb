@@ -37,7 +37,7 @@ module Rails
   end
 end
 
-class TurboStreamerTemplateTest < ActionView::TestCase
+class RailsIntegration::TemplateTest < ActionView::TestCase
   setup do
     Rails.cache.clear
   end
