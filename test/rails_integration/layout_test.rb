@@ -53,6 +53,18 @@ class RailsIntegration::LayoutTest < ActiveSupport::TestCase
     assert_equal([{ 'a' => 1 }, { 'a' => 1 }], JSON.parse(output))
   end
 
+  # The content is recognised by identity, not by being a Proc -- Oj encodes an
+  # unrelated one as {} rather than raising, so a type check would silently
+  # render the template in its place.
+  test "an unrelated proc passed as a value is not mistaken for the content" do
+    output = render_template(
+      'json.object! { json.a 1 }',
+      layout_source: 'json.object! { json.p (-> { 1 }); json.d yield }'
+    )
+
+    assert_equal({ 'p' => {}, 'd' => { 'a' => 1 } }, JSON.parse(output))
+  end
+
   test "json.yield! outside a layout raises" do
     view = ActionView::Base.with_empty_template_cache.new(ActionView::LookupContext.new([]), {}, nil)
     builder = TurboStreamer::Template.new(view)

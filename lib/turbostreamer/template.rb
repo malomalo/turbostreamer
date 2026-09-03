@@ -15,46 +15,25 @@ class TurboStreamer::Template < TurboStreamer
     super(*args, &block)
   end
 
-  # What `yield` returns inside a layout. It is not the template's JSON -- that
-  # would mean encoding the whole document to a string and splicing it back in,
-  # which neither encoder can do into a keyed slot -- but a stand-in that value!
-  # renders in place, so the template writes into the layout's own builder at
-  # exactly the position it was yielded.
-  class DeferredContent
-
-    def initialize(&render)
-      @render = render
-    end
-
-    # A layout may yield more than once, as an ERB one may. Each yield renders
-    # the template again rather than replaying a buffer, so anything it does
-    # happens again too.
-    def render_into(json)
-      @render.call(json)
-    end
-
-  end
-
   # Renders a layout with a builder of our own, so both `yield` and
-  # `json.yield!` can reach the DeferredContent that renders the template the
-  # layout wraps. Layout and template write to one encoder, so the yielded JSON
-  # lands in place with its commas and nesting intact.
+  # `json.yield!` can reach the proc that renders the template the layout wraps.
+  # Layout and template write to one encoder, so the yielded JSON lands in place
+  # with its commas and nesting intact.
   #
   # `render_inner` renders that template, taking the builder to render into; the
   # buffer, when given, is the streaming one both renders share.
   def self.render_with_layout(context, layout, locals, buffer = nil, &render_inner)
-    content = DeferredContent.new { |json| render_inner.call(json) }
-    json    = new(context, output_buffer: buffer || ::ActionView::TurboBuffer.new(String.new))
-    json.deferred_content = content
+    json = new(context, output_buffer: buffer || ::ActionView::TurboBuffer.new(String.new))
+    json.yield_content = render_inner
 
-    layout.render(context, locals.merge(json: json)) { |*| content }
+    layout.render(context, locals.merge(json: json)) { |*| render_inner }
 
     json.target!
   end
 
-  # Set while a layout renders, so json.yield! has something to place. `yield`
-  # gets the same object straight from the block.
-  attr_accessor :deferred_content
+  # The proc that renders the template this layout wraps. `yield` hands it back
+  # from the block; json.yield! reads it from here. Same object either way.
+  attr_accessor :yield_content
   
   def partial!(name_or_options, locals = {})
     if name_or_options.class.respond_to?(:model_name) && name_or_options.respond_to?(:to_partial_path)
@@ -78,8 +57,10 @@ class TurboStreamer::Template < TurboStreamer
     end
   end
 
-  # `yield` in a layout hands back a DeferredContent rather than a value to
-  # encode, so render it here instead -- into this builder, at this position.
+  # `yield` in a layout hands back the proc that renders the template, not the
+  # template's JSON -- that would mean encoding the whole document to a string
+  # and splicing it back in, which neither encoder can do into a keyed slot. So
+  # render it here instead, into this builder, at this position.
   #
   # Example:
   #
@@ -92,8 +73,11 @@ class TurboStreamer::Template < TurboStreamer
   #   end
   #
   #   { "meta": { "version": 1 }, "data": { ... the template ... } }
+  #
+  # Identity rather than `Proc ===`: an unrelated proc handed to a value is
+  # encoded (Oj writes `{}` for one) rather than mistaken for the content.
   def value!(value)
-    return value.render_into(self) if DeferredContent === value
+    return @yield_content.call(self) if @yield_content && value.equal?(@yield_content)
 
     super
   end
@@ -104,9 +88,9 @@ class TurboStreamer::Template < TurboStreamer
   #   json.key! :data
   #   json.yield!
   def yield!
-    raise Errors::NothingToYieldError.build if deferred_content.nil?
+    raise Errors::NothingToYieldError.build if @yield_content.nil?
 
-    deferred_content.render_into(self)
+    @yield_content.call(self)
   end
 
   def array!(collection = BLANK, *attributes, &block)
