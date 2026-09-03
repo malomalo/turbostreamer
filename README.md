@@ -232,9 +232,23 @@ For a layout that only wraps, place it with `json.value!`:
 json.value! yield
 ```
 
-Because a stream cannot be replayed, the template renders once. A second
-`yield` raises `TurboStreamer::Errors::ContentAlreadyYieldedError`, and a layout
-that finishes without yielding at all raises
+If you would rather write the key yourself, `json.yield!` is the same placement
+as a statement:
+
+```ruby
+json.object! do
+  json.meta 1
+  json.key! :data
+  json.yield!
+end
+```
+
+The two are interchangeable — use whichever reads better at the point you need
+it. They share the same content, so mixing them still only yields once.
+
+Because a stream cannot be replayed, the template renders once. A second yield
+raises `TurboStreamer::Errors::ContentAlreadyYieldedError`, and a layout that
+finishes without yielding at all raises
 `TurboStreamer::Errors::LayoutDidNotYieldError` rather than quietly returning a
 response with the template missing.
 

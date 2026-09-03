@@ -15,6 +15,12 @@ class TurboStreamer
       end
     end
 
+    class NothingToYieldError < ::StandardError
+      def self.build
+        new("`yield!` was called outside a layout, so there is no template to render")
+      end
+    end
+
     class ContentAlreadyYieldedError < ::StandardError
       def self.build
         new("the template was already yielded. A stream can't be replayed, so " \

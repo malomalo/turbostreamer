@@ -9,13 +9,14 @@ Unreleased
 * Package `LICENSE` and `CHANGELOG.md` with the gem, and fix `spec.files` dropping
   everything but `README.md` when the gem is built on a shell without brace expansion
 * Layouts now work. A `.json.streamer` layout places the template with
-  `json.some_key yield`; the two share one builder, so the template writes into
-  the same stream rather than being buffered and spliced. The layout renders
-  first and yields to the template, the reverse of an ERB layout, so `yield`
-  returns a stand-in that renders where it is placed rather than the template's
-  JSON. Applies both to `render stream: true` and to ordinary rendering;
-  previously a streamed layout was resolved and then discarded, and an
-  unstreamed one had no way to place the template's JSON at all.
+  `json.some_key yield`, or `json.yield!` if it would rather write the key
+  itself. Layout and template share one builder, so the template writes into the
+  same stream rather than being buffered and spliced. The layout renders first
+  and yields to the template, the reverse of an ERB layout, so `yield` returns a
+  stand-in that renders where it is placed rather than the template's JSON.
+  Applies both to `render stream: true` and to ordinary rendering; previously a
+  streamed layout was resolved and then discarded, and an unstreamed one had no
+  way to place the template's JSON at all.
 * Fix streaming JSON raising `NoMethodError: undefined method 'instrument'`.
   `AbstractRenderer#instrument` was removed in Rails 6.1, so every streamed
   render failed -- silently, since `Body#each` rescues and substitutes an error

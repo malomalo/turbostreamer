@@ -41,25 +41,41 @@ class TurboStreamer::Template < TurboStreamer
 
   end
 
-  # Renders a layout, handing its `yield` a DeferredContent that renders the
-  # template the layout wraps. Both write to one encoder, so the yielded JSON
+  # A copy of a template that declares :json, so locals can carry a builder into
+  # it. Templates are compiled with `locals: []`, so a `json` local would never
+  # bind and the template would start a builder of its own.
+  #
+  # Memoized on the original -- which ActionView caches -- because a fresh
+  # Template object compiles on every render rather than once.
+  def self.with_json_local(template)
+    template.instance_variable_get(:@_turbostreamer_json_local) ||
+      template.instance_variable_set(:@_turbostreamer_json_local,
+        ::ActionView::Template.new(template.source, template.identifier, template.handler,
+          format: template.format, virtual_path: template.virtual_path, locals: [:json]))
+  end
+
+  # Renders a layout with a builder of our own, so both `yield` and
+  # `json.yield!` can reach the DeferredContent that renders the template the
+  # layout wraps. Layout and template write to one encoder, so the yielded JSON
   # lands in place with its commas and nesting intact.
   #
   # `render_inner` renders that template, taking the builder to render into; the
   # buffer, when given, is the streaming one both renders share.
   def self.render_with_layout(context, layout, locals, buffer = nil, &render_inner)
     content = DeferredContent.new { |json| render_inner.call(json) }
+    json    = new(context, output_buffer: buffer || ::ActionView::TurboBuffer.new(String.new))
+    json.deferred_content = content
 
-    body = if buffer
-      layout.render(context, locals, buffer) { |*| content }
-    else
-      layout.render(context, locals) { |*| content }
-    end
+    with_json_local(layout).render(context, locals.merge(json: json)) { |*| content }
 
     raise Errors::LayoutDidNotYieldError.build(layout.identifier) unless content.rendered?
 
-    body
+    json.target!
   end
+
+  # Set while a layout renders, so json.yield! has something to place. `yield`
+  # gets the same object straight from the block.
+  attr_accessor :deferred_content
   
   def partial!(name_or_options, locals = {})
     if name_or_options.class.respond_to?(:model_name) && name_or_options.respond_to?(:to_partial_path)
@@ -101,6 +117,17 @@ class TurboStreamer::Template < TurboStreamer
     return value.render_into(self) if DeferredContent === value
 
     super
+  end
+
+  # The same thing as a statement rather than a value, for a layout that would
+  # rather write the key itself:
+  #
+  #   json.key! :data
+  #   json.yield!
+  def yield!
+    raise Errors::NothingToYieldError.build if deferred_content.nil?
+
+    deferred_content.render_into(self)
   end
 
   def array!(collection = BLANK, *attributes, &block)

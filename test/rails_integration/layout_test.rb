@@ -33,6 +33,35 @@ class RailsIntegration::LayoutTest < ActiveSupport::TestCase
     assert_equal([{ 'f' => 1 }, { 'x' => 1 }], JSON.parse(output))
   end
 
+  # json.yield! is the same placement as a statement rather than a value, for a
+  # layout that would rather write the key itself.
+  test "a layout can place the template with json.yield!" do
+    output = render_template(
+      'json.object! { json.a 1; json.b "two" }',
+      layout_source: 'json.object! { json.meta 1; json.key! :data; json.yield! }'
+    )
+
+    assert_equal({ 'meta' => 1, 'data' => { 'a' => 1, 'b' => 'two' } }, JSON.parse(output))
+  end
+
+  test "json.yield! and yield share the single-use guard" do
+    error = assert_raises(ActionView::Template::Error) do
+      render_template(
+        'json.object! { json.a 1 }',
+        layout_source: 'json.array! { json.child! yield; json.child! { json.yield! } }'
+      )
+    end
+
+    assert_kind_of TurboStreamer::Errors::ContentAlreadyYieldedError, error.cause
+  end
+
+  test "json.yield! outside a layout raises" do
+    view = ActionView::Base.with_empty_template_cache.new(ActionView::LookupContext.new([]), {}, nil)
+    builder = TurboStreamer::Template.new(view)
+
+    assert_raises(TurboStreamer::Errors::NothingToYieldError) { builder.yield! }
+  end
+
   test "a template without a layout is unaffected without streaming" do
     assert_equal({ 'a' => 1 }, JSON.parse(render_template('json.object! { json.a 1 }', layout: nil)))
   end
