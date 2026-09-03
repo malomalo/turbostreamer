@@ -13,5 +13,19 @@ class TurboStreamer
         new("`yield!` was called outside a layout, so there is no template to render")
       end
     end
+
+    class YieldError < ::StandardError
+      def self.build
+        new("use `json.yield!` in a .json.streamer layout, `yield` is not supported")
+      end
+    end
+
+    class RecursiveYieldError < ::StandardError
+      def self.build
+        new("`yield!` was called while the template it renders was still " \
+            "rendering. The template shares the layout's builder, so yielding " \
+            "from inside it would never terminate.")
+      end
+    end
   end
 end

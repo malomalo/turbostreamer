@@ -56,7 +56,7 @@ class ActiveSupport::TestCase
   # Renders through ActionView::StreamingTemplateRenderer, the path a controller
   # takes for `render stream: true`. Returns the Rack body, which is a
   # StreamingTemplateRenderer::Body when streaming and a plain Array when not.
-  def render_streaming(source, layout: 'layouts/app', layout_source: 'json.value! yield')
+  def render_streaming(source, layout: 'layouts/app', layout_source: 'json.yield!')
     resolver = ActionView::FixtureResolver.new(
       'test.json.streamer' => source,
       'layouts/app.json.streamer' => layout_source
@@ -73,7 +73,7 @@ class ActiveSupport::TestCase
 
   # Renders through the ordinary ActionView::TemplateRenderer -- what a
   # controller does without `stream: true`. Returns the rendered String.
-  def render_template(source, layout: 'layouts/app', layout_source: 'json.value! yield')
+  def render_template(source, layout: 'layouts/app', layout_source: 'json.yield!')
     resolver = ActionView::FixtureResolver.new(
       'test.json.streamer' => source,
       'layouts/app.json.streamer' => layout_source

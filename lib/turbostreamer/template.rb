@@ -15,24 +15,27 @@ class TurboStreamer::Template < TurboStreamer
     super(*args, &block)
   end
 
-  # Renders a layout with a builder of our own, so both `yield` and
-  # `json.yield!` can reach the proc that renders the template the layout wraps.
-  # Layout and template write to one encoder, so the yielded JSON lands in place
-  # with its commas and nesting intact.
+  # Renders a layout with a builder of our own, so `json.yield!` can reach the
+  # proc that renders the template the layout wraps. Layout and template write
+  # to one encoder, so the yielded JSON lands in place with its commas and
+  # nesting intact.
   #
   # `render_inner` renders that template, taking the builder to render into; the
   # buffer, when given, is the streaming one both renders share.
+  #
+  # The block exists only to give a bare `yield` a useful failure. Without one
+  # it would be `no block given (yield)`, which says nothing about layouts.
   def self.render_with_layout(context, layout, locals, buffer = nil, &render_inner)
     json = new(context, output_buffer: buffer || ::ActionView::TurboBuffer.new(String.new))
     json.yield_content = render_inner
 
-    layout.render(context, locals.merge(json: json)) { |*| render_inner }
+    layout.render(context, locals.merge(json: json)) { |*| raise Errors::YieldError.build }
 
     json.target!
   end
 
-  # The proc that renders the template this layout wraps. `yield` hands it back
-  # from the block; json.yield! reads it from here. Same object either way.
+  # The proc that renders the template this layout wraps, for json.yield! to
+  # place.
   attr_accessor :yield_content
   
   def partial!(name_or_options, locals = {})
@@ -57,31 +60,6 @@ class TurboStreamer::Template < TurboStreamer
     end
   end
 
-  # `yield` in a layout hands back the proc that renders the template, not the
-  # template's JSON -- that would mean encoding the whole document to a string
-  # and splicing it back in, which neither encoder can do into a keyed slot. So
-  # render it here instead, into this builder, at this position.
-  #
-  # Example:
-  #
-  #   # app/views/layouts/application.json.streamer
-  #   json.object! do
-  #     json.meta do
-  #       json.object! { json.version 1 }
-  #     end
-  #     json.data yield
-  #   end
-  #
-  #   { "meta": { "version": 1 }, "data": { ... the template ... } }
-  #
-  # Identity rather than `Proc ===`: an unrelated proc handed to a value is
-  # encoded (Oj writes `{}` for one) rather than mistaken for the content.
-  def value!(value)
-    return @yield_content.call(self) if @yield_content && value.equal?(@yield_content)
-
-    super
-  end
-
   # The same thing as a statement rather than a value, for a layout that would
   # rather write the key itself:
   #
@@ -89,8 +67,17 @@ class TurboStreamer::Template < TurboStreamer
   #   json.yield!
   def yield!
     raise Errors::NothingToYieldError.build if @yield_content.nil?
+    # A layout may yield repeatedly, as an ERB one may -- but not from inside
+    # the template it is rendering. That template shares this builder, so its
+    # yield! would call straight back into itself.
+    raise Errors::RecursiveYieldError.build if @yielding
 
-    @yield_content.call(self)
+    begin
+      @yielding = true
+      @yield_content.call(self)
+    ensure
+      @yielding = false
+    end
   end
 
   def array!(collection = BLANK, *attributes, &block)

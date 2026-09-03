@@ -9,7 +9,7 @@ class RailsIntegration::LayoutTest < ActiveSupport::TestCase
   test "a layout wraps the template it yields to without streaming" do
     output = render_template(
       'json.object! { json.a 1; json.b "two" }',
-      layout_source: 'json.object! { json.meta 1; json.data yield }'
+      layout_source: 'json.object! { json.meta 1; json.key! :data; json.yield! }'
     )
 
     assert_equal({ 'meta' => 1, 'data' => { 'a' => 1, 'b' => 'two' } }, JSON.parse(output))
@@ -18,7 +18,7 @@ class RailsIntegration::LayoutTest < ActiveSupport::TestCase
   test "a layout can yield an array template without streaming" do
     output = render_template(
       'json.array! [1, 2, 3]',
-      layout_source: 'json.object! { json.data yield }'
+      layout_source: 'json.object! { json.key! :data; json.yield! }'
     )
 
     assert_equal({ 'data' => [1, 2, 3] }, JSON.parse(output))
@@ -27,42 +27,28 @@ class RailsIntegration::LayoutTest < ActiveSupport::TestCase
   test "a layout can yield in the middle of an array without streaming" do
     output = render_template(
       'json.object! { json.x 1 }',
-      layout_source: 'json.array! { json.child! { json.object! { json.f 1 } }; json.child! yield }'
+      layout_source: 'json.array! { json.child! { json.object! { json.f 1 } }; json.child! { json.yield! } }'
     )
 
     assert_equal([{ 'f' => 1 }, { 'x' => 1 }], JSON.parse(output))
   end
 
-  # json.yield! is the same placement as a statement rather than a value, for a
-  # layout that would rather write the key itself.
-  test "a layout can place the template with json.yield!" do
-    output = render_template(
-      'json.object! { json.a 1; json.b "two" }',
-      layout_source: 'json.object! { json.meta 1; json.key! :data; json.yield! }'
-    )
+  # json.yield! is the only way to place the template. A bare `yield` cannot
+  # work: it returns a value, and the template is written into the stream at the
+  # position the layout has reached rather than returned.
+  test "a bare yield in a layout raises" do
+    error = assert_raises(ActionView::Template::Error) do
+      render_template('json.object! { json.a 1 }', layout_source: 'json.object! { json.data yield }')
+    end
 
-    assert_equal({ 'meta' => 1, 'data' => { 'a' => 1, 'b' => 'two' } }, JSON.parse(output))
+    assert_kind_of TurboStreamer::Errors::YieldError, error.cause
+    assert_match 'json.yield!', error.cause.message
   end
 
-  test "yield and json.yield! reach the same content" do
-    output = render_template(
-      'json.object! { json.a 1 }',
-      layout_source: 'json.array! { json.child! yield; json.child! { json.yield! } }'
-    )
-
-    assert_equal([{ 'a' => 1 }, { 'a' => 1 }], JSON.parse(output))
-  end
-
-  # The content is recognised by identity, not by being a Proc -- Oj encodes an
-  # unrelated one as {} rather than raising, so a type check would silently
-  # render the template in its place.
-  test "an unrelated proc passed as a value is not mistaken for the content" do
-    output = render_template(
-      'json.object! { json.a 1 }',
-      layout_source: 'json.object! { json.p (-> { 1 }); json.d yield }'
-    )
-
-    assert_equal({ 'p' => {}, 'd' => { 'a' => 1 } }, JSON.parse(output))
+  # Placing the template needs no hook in value!, which is why nothing overrides
+  # it -- every template render would otherwise pay for a layouts-only feature.
+  test "value! is not overridden on the builder" do
+    assert_equal TurboStreamer, TurboStreamer::Template.instance_method(:value!).owner
   end
 
   test "json.yield! outside a layout raises" do
@@ -119,7 +105,7 @@ class RailsIntegration::LayoutTest < ActiveSupport::TestCase
   test "a layout wraps the template it yields to" do
     output = render_streaming(
       'json.object! { json.a 1; json.b "two" }',
-      layout_source: 'json.object! { json.meta 1; json.data yield }'
+      layout_source: 'json.object! { json.meta 1; json.key! :data; json.yield! }'
     ).join
 
     assert_equal({ 'meta' => 1, 'data' => { 'a' => 1, 'b' => 'two' } }, JSON.parse(output))
@@ -128,7 +114,7 @@ class RailsIntegration::LayoutTest < ActiveSupport::TestCase
   test "a layout can yield an array template" do
     output = render_streaming(
       'json.array! [1, 2, 3]',
-      layout_source: 'json.object! { json.data yield }'
+      layout_source: 'json.object! { json.key! :data; json.yield! }'
     ).join
 
     assert_equal({ 'data' => [1, 2, 3] }, JSON.parse(output))
@@ -139,7 +125,7 @@ class RailsIntegration::LayoutTest < ActiveSupport::TestCase
   test "a layout can yield in the middle of an array" do
     output = render_streaming(
       'json.object! { json.x 1 }',
-      layout_source: 'json.array! { json.child! { json.object! { json.first 1 } }; json.child! yield }'
+      layout_source: 'json.array! { json.child! { json.object! { json.first 1 } }; json.child! { json.yield! } }'
     ).join
 
     assert_equal([{ 'first' => 1 }, { 'x' => 1 }], JSON.parse(output))
@@ -148,7 +134,7 @@ class RailsIntegration::LayoutTest < ActiveSupport::TestCase
   test "a large document still streams in chunks through a layout" do
     source = 'json.array! { 2_000.times { |i| json.child! { json.object! { json.index i } } } }'
     chunks = render_streaming(
-      source, layout_source: 'json.object! { json.data yield }'
+      source, layout_source: 'json.object! { json.key! :data; json.yield! }'
     )
 
     assert_operator chunks.size, :>, 1,
@@ -156,8 +142,6 @@ class RailsIntegration::LayoutTest < ActiveSupport::TestCase
     assert_equal 2_000, JSON.parse(chunks.join)['data'].size
   end
 
-  # Nothing else would notice: the layout renders fine, and the response is
-  # simply missing everything the template was going to write.
   # The layout's builder reaches the template through local_assigns, so both are
   # rendered as ActionView found them. Building a Template of our own to carry it
   # -- an earlier approach -- would compile on every render instead of once.
@@ -171,7 +155,7 @@ class RailsIntegration::LayoutTest < ActiveSupport::TestCase
 
     resolver = ActionView::FixtureResolver.new(
       'test.json.streamer' => 'json.object! { json.a 1 }',
-      'layouts/app.json.streamer' => 'json.object! { json.data yield }'
+      'layouts/app.json.streamer' => 'json.object! { json.key! :data; json.yield! }'
     )
     lookup_context = ActionView::LookupContext.new(
       ActionView::PathSet.new([resolver]), formats: [:json], handlers: [:streamer]
@@ -198,7 +182,7 @@ class RailsIntegration::LayoutTest < ActiveSupport::TestCase
   test "a layout can yield more than once" do
     output = render_template(
       'json.object! { json.a 1 }',
-      layout_source: 'json.array! { json.child! yield; json.child! yield }'
+      layout_source: 'json.array! { json.child! { json.yield! }; json.child! { json.yield! } }'
     )
 
     assert_equal([{ 'a' => 1 }, { 'a' => 1 }], JSON.parse(output))
@@ -210,18 +194,22 @@ class RailsIntegration::LayoutTest < ActiveSupport::TestCase
     $turbostreamer_yield_renders = 0
     output = render_template(
       'json.object! { json.n ($turbostreamer_yield_renders += 1) }',
-      layout_source: 'json.object! { json.first yield; json.second yield }'
+      layout_source: 'json.object! { json.key! :first; json.yield!; json.key! :second; json.yield! }'
     )
 
     assert_equal({ 'first' => { 'n' => 1 }, 'second' => { 'n' => 2 } }, JSON.parse(output))
   end
 
-  test "a yield from inside the template raises rather than recursing" do
+  # The template shares the layout's builder, so its yield! would call straight
+  # back into itself -- a stack overflow rather than an error, without the
+  # re-entrancy guard.
+  test "json.yield! from inside the template raises rather than recursing" do
     error = assert_raises(ActionView::Template::Error) do
-      render_template('json.object! { json.oops yield }', layout_source: 'json.object! { json.data yield }')
+      render_template('json.object! { json.key! :oops; json.yield! }',
+        layout_source: 'json.object! { json.key! :data; json.yield! }')
     end
 
-    assert_kind_of LocalJumpError, error.cause
+    assert_kind_of TurboStreamer::Errors::RecursiveYieldError, error.cause
   end
 
 end
