@@ -15,36 +15,50 @@ class TurboStreamer::Template < TurboStreamer
     super(*args, &block)
   end
 
-  # Renders a layout, threading the template it wraps through the view so the
-  # layout's `json.yield!` renders it into the layout's own builder. Both write
-  # to one encoder, so the yielded JSON lands in place with its commas and
-  # nesting intact instead of being buffered into a string and spliced back in.
-  #
-  # `render_inner` renders the wrapped template; the buffer, when given, is the
-  # streaming one both renders share.
-  def self.render_with_layout(context, layout, locals, buffer = nil, &render_inner)
-    context.instance_variable_set(:@_turbostreamer_content, lambda do |json|
-      # Single use: a stream can't be replayed, so a second yield! -- or one
-      # from inside the template itself, which would recurse forever -- raises
-      # rather than rendering twice.
-      context.instance_variable_set(:@_turbostreamer_content, nil)
-      begin
-        context.instance_variable_set(:@_turbostreamer_builder, json)
-        render_inner.call
-      ensure
-        context.instance_variable_set(:@_turbostreamer_builder, nil)
-      end
-    end)
+  # What `yield` returns inside a layout. It is not the template's JSON -- that
+  # would mean encoding the whole document to a string and splicing it back in,
+  # which neither encoder can do into a keyed slot -- but a stand-in that value!
+  # renders in place, so the template writes into the layout's own builder at
+  # exactly the position it was yielded.
+  class DeferredContent
 
-    # Without a block a bare `yield` in the layout fails as `no block given`,
-    # Point at json.yield! instead.
-    if buffer
-      layout.render(context, locals, buffer) { |*| raise Errors::YieldError.build }
-    else
-      layout.render(context, locals) { |*| raise Errors::YieldError.build }
+    def initialize(&render)
+      @render = render
     end
-  ensure
-    context.instance_variable_set(:@_turbostreamer_content, nil)
+
+    # Single use: a stream cannot be replayed, and a deferred that reached the
+    # template itself would recurse forever.
+    def render_into(json)
+      raise TurboStreamer::Errors::ContentAlreadyYieldedError.build if @rendered
+
+      @rendered = true
+      @render.call(json)
+    end
+
+    def rendered?
+      @rendered
+    end
+
+  end
+
+  # Renders a layout, handing its `yield` a DeferredContent that renders the
+  # template the layout wraps. Both write to one encoder, so the yielded JSON
+  # lands in place with its commas and nesting intact.
+  #
+  # `render_inner` renders that template, taking the builder to render into; the
+  # buffer, when given, is the streaming one both renders share.
+  def self.render_with_layout(context, layout, locals, buffer = nil, &render_inner)
+    content = DeferredContent.new { |json| render_inner.call(json) }
+
+    body = if buffer
+      layout.render(context, locals, buffer) { |*| content }
+    else
+      layout.render(context, locals) { |*| content }
+    end
+
+    raise Errors::LayoutDidNotYieldError.build(layout.identifier) unless content.rendered?
+
+    body
   end
   
   def partial!(name_or_options, locals = {})
@@ -69,8 +83,8 @@ class TurboStreamer::Template < TurboStreamer
     end
   end
 
-  # Renders the template this layout wraps, writing into the same builder so its
-  # JSON lands exactly where the layout yields.
+  # `yield` in a layout hands back a DeferredContent rather than a value to
+  # encode, so render it here instead -- into this builder, at this position.
   #
   # Example:
   #
@@ -79,16 +93,14 @@ class TurboStreamer::Template < TurboStreamer
   #     json.meta do
   #       json.object! { json.version 1 }
   #     end
-  #     json.key! :data
-  #     json.yield!
+  #     json.data yield
   #   end
   #
   #   { "meta": { "version": 1 }, "data": { ... the template ... } }
-  def yield!
-    content = @context.instance_variable_get(:@_turbostreamer_content)
-    raise Errors::NoTemplateToYieldError.build if content.nil?
+  def value!(value)
+    return value.render_into(self) if DeferredContent === value
 
-    content.call(self)
+    super
   end
 
   def array!(collection = BLANK, *attributes, &block)

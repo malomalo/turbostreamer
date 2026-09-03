@@ -8,15 +8,17 @@ class TurboStreamer
       end
     end
 
-    class NoTemplateToYieldError < ::StandardError
-      def self.build
-        new("`yield!` was called outside a layout, so there is no template to render")
+    class LayoutDidNotYieldError < ::StandardError
+      def self.build(identifier)
+        new("#{identifier} never yielded, so the template it wraps was not " \
+            "rendered. Place it with `json.some_key yield`.")
       end
     end
 
-    class YieldError < ::StandardError
+    class ContentAlreadyYieldedError < ::StandardError
       def self.build
-        new("use `json.yield!` in a .json.streamer layout, `yield` is not supported")
+        new("the template was already yielded. A stream can't be replayed, so " \
+            "a layout can only yield once.")
       end
     end
   end

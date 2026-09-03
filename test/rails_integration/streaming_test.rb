@@ -7,7 +7,7 @@ class RailsIntegration::StreamingTest < ActiveSupport::TestCase
   test "streams a template through StreamingTemplateRenderer" do
     resolver = ActionView::FixtureResolver.new(
       'test.json.streamer' => 'json.object! { json.a 1; json.b "two" }',
-      'layouts/app.json.streamer' => 'json.yield!'
+      'layouts/app.json.streamer' => 'json.value! yield'
     )
     lookup_context = ActionView::LookupContext.new(
       ActionView::PathSet.new([resolver]), formats: [:json], handlers: [:streamer]

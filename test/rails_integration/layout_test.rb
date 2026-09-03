@@ -9,7 +9,7 @@ class RailsIntegration::LayoutTest < ActiveSupport::TestCase
   test "a layout wraps the template it yields to without streaming" do
     output = render_template(
       'json.object! { json.a 1; json.b "two" }',
-      layout_source: 'json.object! { json.meta 1; json.key! :data; json.yield! }'
+      layout_source: 'json.object! { json.meta 1; json.data yield }'
     )
 
     assert_equal({ 'meta' => 1, 'data' => { 'a' => 1, 'b' => 'two' } }, JSON.parse(output))
@@ -18,7 +18,7 @@ class RailsIntegration::LayoutTest < ActiveSupport::TestCase
   test "a layout can yield an array template without streaming" do
     output = render_template(
       'json.array! [1, 2, 3]',
-      layout_source: 'json.object! { json.key! :data; json.yield! }'
+      layout_source: 'json.object! { json.data yield }'
     )
 
     assert_equal({ 'data' => [1, 2, 3] }, JSON.parse(output))
@@ -27,7 +27,7 @@ class RailsIntegration::LayoutTest < ActiveSupport::TestCase
   test "a layout can yield in the middle of an array without streaming" do
     output = render_template(
       'json.object! { json.x 1 }',
-      layout_source: 'json.array! { json.child! { json.object! { json.f 1 } }; json.child! { json.yield! } }'
+      layout_source: 'json.array! { json.child! { json.object! { json.f 1 } }; json.child! yield }'
     )
 
     assert_equal([{ 'f' => 1 }, { 'x' => 1 }], JSON.parse(output))
@@ -80,7 +80,7 @@ class RailsIntegration::LayoutTest < ActiveSupport::TestCase
   test "a layout wraps the template it yields to" do
     output = render_streaming(
       'json.object! { json.a 1; json.b "two" }',
-      layout_source: 'json.object! { json.meta 1; json.key! :data; json.yield! }'
+      layout_source: 'json.object! { json.meta 1; json.data yield }'
     ).join
 
     assert_equal({ 'meta' => 1, 'data' => { 'a' => 1, 'b' => 'two' } }, JSON.parse(output))
@@ -89,7 +89,7 @@ class RailsIntegration::LayoutTest < ActiveSupport::TestCase
   test "a layout can yield an array template" do
     output = render_streaming(
       'json.array! [1, 2, 3]',
-      layout_source: 'json.object! { json.key! :data; json.yield! }'
+      layout_source: 'json.object! { json.data yield }'
     ).join
 
     assert_equal({ 'data' => [1, 2, 3] }, JSON.parse(output))
@@ -100,7 +100,7 @@ class RailsIntegration::LayoutTest < ActiveSupport::TestCase
   test "a layout can yield in the middle of an array" do
     output = render_streaming(
       'json.object! { json.x 1 }',
-      layout_source: 'json.array! { json.child! { json.object! { json.first 1 } }; json.child! { json.yield! } }'
+      layout_source: 'json.array! { json.child! { json.object! { json.first 1 } }; json.child! yield }'
     ).join
 
     assert_equal([{ 'first' => 1 }, { 'x' => 1 }], JSON.parse(output))
@@ -109,7 +109,7 @@ class RailsIntegration::LayoutTest < ActiveSupport::TestCase
   test "a large document still streams in chunks through a layout" do
     source = 'json.array! { 2_000.times { |i| json.child! { json.object! { json.index i } } } }'
     chunks = render_streaming(
-      source, layout_source: 'json.object! { json.key! :data; json.yield! }'
+      source, layout_source: 'json.object! { json.data yield }'
     )
 
     assert_operator chunks.size, :>, 1,
@@ -117,33 +117,64 @@ class RailsIntegration::LayoutTest < ActiveSupport::TestCase
     assert_equal 2_000, JSON.parse(chunks.join)['data'].size
   end
 
-  # The template is written into the stream, not returned, so it can't be placed
-  # by the keyword. Without a block this failed as a bare "no block given".
-  test "the yield keyword in a layout points at yield!" do
-    error = assert_raises(ActionView::Template::Error) do
-      render_template('json.object! { json.a 1 }', layout_source: 'json.object! { json.data yield }')
+  # Nothing else would notice: the layout renders fine, and the response is
+  # simply missing everything the template was going to write.
+  # The template is rendered through a copy declaring :json, so locals can carry
+  # the layout's builder. A fresh copy per render would compile the template on
+  # every request, so the copy is memoized on the original.
+  test "the template is compiled once across renders" do
+    compiles = 0
+    counter = Module.new do
+      define_method(:compile) { |mod| compiles += 1; super(mod) }
+      private :compile
+    end
+    ActionView::Template.prepend(counter)
+
+    resolver = ActionView::FixtureResolver.new(
+      'test.json.streamer' => 'json.object! { json.a 1 }',
+      'layouts/app.json.streamer' => 'json.object! { json.data yield }'
+    )
+    lookup_context = ActionView::LookupContext.new(
+      ActionView::PathSet.new([resolver]), formats: [:json], handlers: [:streamer]
+    )
+    view = ActionView::Base.with_empty_template_cache.new(lookup_context, {}, nil)
+
+    5.times do
+      ActionView::TemplateRenderer.new(lookup_context).render(view, template: 'test', layout: 'layouts/app')
     end
 
-    assert_kind_of TurboStreamer::Errors::YieldError, error.cause
-    assert_match 'json.yield!', error.cause.message
+    # The :json copy and the layout, once each. The original is never rendered
+    # directly, so it never compiles at all.
+    assert_equal 2, compiles, 'the template is being recompiled on every render'
   end
 
-  test "yield! outside a layout raises" do
-    view = ActionView::Base.with_empty_template_cache.new(ActionView::LookupContext.new([]), {}, nil)
-    builder = TurboStreamer::Template.new(view)
+  test "a layout that never yields raises" do
+    error = assert_raises(TurboStreamer::Errors::LayoutDidNotYieldError) do
+      render_template('json.object! { json.a 1 }', layout_source: 'json.object! { json.meta 1 }')
+    end
 
-    assert_raises(TurboStreamer::Errors::NoTemplateToYieldError) { builder.yield! }
+    assert_match 'layouts/app.json.streamer', error.message
   end
 
-  # A stream can't be replayed, and a yield! from inside the template would
-  # otherwise recurse forever, so the content is single use.
-  test "yielding twice does not render the template twice" do
-    output = render_streaming(
-      'json.object! { json.a 1 }',
-      layout_source: 'json.array! { json.child! { json.yield! }; json.child! { json.yield! } }'
-    ).join
+  # A stream can't be replayed, and a yield from inside the template itself
+  # would recurse forever, so the content is single use.
+  test "yielding twice raises" do
+    error = assert_raises(ActionView::Template::Error) do
+      render_template(
+        'json.object! { json.a 1 }',
+        layout_source: 'json.array! { json.child! yield; json.child! yield }'
+      )
+    end
 
-    refute_includes output, '"a":1,{"a":1}', 'the template was rendered twice'
+    assert_kind_of TurboStreamer::Errors::ContentAlreadyYieldedError, error.cause
+  end
+
+  test "a yield from inside the template raises rather than recursing" do
+    error = assert_raises(ActionView::Template::Error) do
+      render_template('json.object! { json.oops yield }', layout_source: 'json.object! { json.data yield }')
+    end
+
+    assert_kind_of LocalJumpError, error.cause
   end
 
 end

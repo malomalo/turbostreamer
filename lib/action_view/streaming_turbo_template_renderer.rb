@@ -30,8 +30,7 @@ module ActionView
         # underlying template handler. Now, every time something is
         # concatenated to the buffer, it is not appended to an array, but
         # streamed straight to the client.
-        output  = StreamingTurboBuffer.new(buffer)
-        yielder = lambda { |*name| view._layout_for(*name) }
+        output = StreamingTurboBuffer.new(buffer)
 
         ActiveSupport::Notifications.instrument(
           "render_template.action_view",
@@ -40,11 +39,11 @@ module ActionView
           locals: locals
         ) do
           if layout
-            TurboStreamer::Template.render_with_layout(view, layout, locals, output) do
-              template.render(view, locals, output, &yielder)
+            TurboStreamer::Template.render_with_layout(view, layout, locals, output) do |json|
+              inner_template(template).render(view, locals.merge(json: json), output)
             end
           else
-            template.render(view, locals, output, &yielder)
+            template.render(view, locals, output)
           end
         end
       end

@@ -193,7 +193,7 @@ json.comments @post.comments, partial: 'comment/comment', as: :comment
 
 ### Layouts
 
-A `.json.streamer` layout can wrap the template. Call `json.yield!` where the
+A `.json.streamer` layout can wrap the template. Put `yield` where the
 template's JSON should go:
 
 ```ruby
@@ -202,8 +202,7 @@ json.object! do
   json.meta do
     json.object! { json.version 1 }
   end
-  json.key! :data
-  json.yield!
+  json.data yield
 end
 
 # app/views/posts/index.json.streamer
@@ -218,51 +217,39 @@ string and spliced back in. This works whether or not the response is streamed
 with `render stream: true`; when it is, a large response still arrives in
 chunks.
 
-Note that the layout renders *first*, and `json.yield!` renders the template it
-wraps. This is the reverse of an ERB layout, where the template is rendered up
-front and the layout concatenates the resulting string.
-
-`json.yield!` can appear anywhere a value can, including inside an array:
+`yield` goes anywhere a value goes, including inside an array:
 
 ```ruby
 json.array! do
   json.child! { json.object! { json.first true } }
-  json.child! { json.yield! }
+  json.child! yield
 end
 ```
 
-Because a stream cannot be replayed, the template renders once. A second
-`json.yield!` — or one from inside the template itself — raises
-`TurboStreamer::Errors::NoTemplateToYieldError` rather than rendering twice.
-
-#### Why `json.yield!` and not `yield`
-
-`yield` is a Ruby keyword that returns a value, and the template's JSON is
-never a value here — it is written into the stream at the position the layout
-has reached. Placing it therefore has to go through the builder:
+For a layout that only wraps, place it with `json.value!`:
 
 ```ruby
-json.key! :data
-json.yield!          # writes the template's JSON as the value of "data"
+json.value! yield
 ```
 
-If `yield` were used instead, `json.data yield` would read as though it
-assigned the template to `"data"`, when in fact it would write the template's
-JSON first and then set `"data"` to whatever `yield` returned. `json.yield!`
-also matches the rest of the DSL, where the methods that write something end in
-`!` — `object!`, `array!`, `child!`, `partial!`, `merge!`, `cache!`. A bare
-`yield` in a `.json.streamer` layout raises
-`TurboStreamer::Errors::YieldError`.
+Because a stream cannot be replayed, the template renders once. A second
+`yield` raises `TurboStreamer::Errors::ContentAlreadyYieldedError`, and a layout
+that finishes without yielding at all raises
+`TurboStreamer::Errors::LayoutDidNotYieldError` rather than quietly returning a
+response with the template missing.
 
 #### Layouts are not ERB layouts
 
 Two differences worth knowing:
 
-* **The layout renders first.** `json.yield!` renders the template it wraps.
-  An ERB layout is the other way around: the template is rendered up front and
-  the layout concatenates the resulting string. Reversing it is what lets the
+* **The layout renders first**, and `yield` renders the template it wraps. An
+  ERB layout is the other way around: the template is rendered up front and the
+  layout concatenates the resulting string. Reversing it is what lets the
   template write into the layout's builder instead of being encoded to a string
-  and spliced back in — which neither encoder can do into a keyed slot.
+  and spliced back in — which neither encoder can do into a keyed slot. So
+  `yield` does not hand you the template's JSON; it hands you a stand-in that
+  renders where you put it, which is why it has to be *placed* rather than
+  interpolated.
 * **There is one yield, and it has no name.** `content_for` / `provide` have no
   analogue, and a layout cannot ask for content the template defines later. In
   ERB that works because the layout runs in a Fiber and suspends until the

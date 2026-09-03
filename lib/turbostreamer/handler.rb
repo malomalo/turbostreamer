@@ -16,13 +16,12 @@ class TurboStreamer
     end
     
     def self.call(template, source)
-      # A layout renders first and threads its builder through the view so the
-      # template it wraps writes into the same stream instead of starting one of
-      # its own. Locals can't carry it the way partial! does: a top-level
-      # template is compiled with `locals: []`, so a `json` local never binds.
+      # A layout renders first and its `yield` renders the template it wraps
+      # into the layout's own builder, handed over as the `json` local -- the
+      # same way partial! passes it.
       #
       # this juggling is required to keep line numbers right in the error
-      %{__already_defined = defined?(json) || (@_turbostreamer_builder && "layout"); json||=@_turbostreamer_builder||TurboStreamer::Template.new(self, output_buffer: ActionView::TurboBuffer.wrap(output_buffer)); #{source}
+      %{__already_defined = defined?(json); json||=TurboStreamer::Template.new(self, output_buffer: ActionView::TurboBuffer.wrap(output_buffer)); #{source}
         json.target! unless (__already_defined && __already_defined != "method")}
     end
     

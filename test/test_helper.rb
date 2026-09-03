@@ -2,6 +2,7 @@
 # installed gem
 $LOAD_PATH << File.expand_path('../lib', __FILE__)
 
+require 'debug'
 require 'json'
 require "minitest/reporters"
 Minitest::Reporters.use! Minitest::Reporters::SpecReporter.new
@@ -55,7 +56,7 @@ class ActiveSupport::TestCase
   # Renders through ActionView::StreamingTemplateRenderer, the path a controller
   # takes for `render stream: true`. Returns the Rack body, which is a
   # StreamingTemplateRenderer::Body when streaming and a plain Array when not.
-  def render_streaming(source, layout: 'layouts/app', layout_source: 'json.yield!')
+  def render_streaming(source, layout: 'layouts/app', layout_source: 'json.value! yield')
     resolver = ActionView::FixtureResolver.new(
       'test.json.streamer' => source,
       'layouts/app.json.streamer' => layout_source
@@ -72,7 +73,7 @@ class ActiveSupport::TestCase
 
   # Renders through the ordinary ActionView::TemplateRenderer -- what a
   # controller does without `stream: true`. Returns the rendered String.
-  def render_template(source, layout: 'layouts/app', layout_source: 'json.yield!')
+  def render_template(source, layout: 'layouts/app', layout_source: 'json.value! yield')
     resolver = ActionView::FixtureResolver.new(
       'test.json.streamer' => source,
       'layouts/app.json.streamer' => layout_source
