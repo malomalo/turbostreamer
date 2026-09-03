@@ -30,11 +30,6 @@ Breaking:
   `AbstractRenderer#instrument` was removed in Rails 6.1, so every streamed
   render failed -- silently, since `Body#each` rescues and substitutes an error
   page. It now notifies `render_template.action_view` directly.
-* Stop aliasing `write` onto `ActionView::OutputBuffer` and
-  `ActionView::StreamingBuffer`. The encoders now stream into `TurboStreamer::Buffer`,
-  which wraps the ActionView buffer instead of patching it, so the non-escaping
-  `write` is no longer added to every buffer in the application.
-  `ActionView::JSONStreamingBuffer` moves to `TurboStreamer::StreamingBuffer`.
 
 1.11.0 - 2024-04-29
 -----
