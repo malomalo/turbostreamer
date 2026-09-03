@@ -55,15 +55,23 @@ task :performance do
 
 
   base = File.expand_path("../performance/dirk", __FILE__)
-  output_file = File.join(base, 'report.png')
   files = [
     'rabl/oj.rb',
     'jbuilder/oj.rb',
     'turbostreamer/oj.rb',
     'turbostreamer/wankel.rb',
   ].map{ |i| File.join(base, i) }
-  analyzer = Analyzer.new(*files, lib: File.join(base, 'lib.rb'))
-  analyzer.plot(output_file)
+
+  # Run dirk both ways: with fragment caching on, which is how these templates
+  # would run in production, and with it off, which compares the builders
+  # themselves rather than who caches at the outermost layer.
+  { 'report-cached.png' => 'true', 'report-uncached.png' => 'false' }.each do |output, caching|
+    ENV['PERFORM_CACHING'] = caching
+    analyzer = Analyzer.new(*files, lib: File.join(base, 'lib.rb'))
+    analyzer.plot(File.join(base, output))
+  end
+ensure
+  ENV.delete('PERFORM_CACHING')
 end
 
 task test: "test:all"

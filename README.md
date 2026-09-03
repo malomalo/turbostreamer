@@ -441,25 +441,48 @@ The benchmark gems live in an optional Bundler group, so install them first:
     bundle install
 
 To run the benchmarks: `bundle exec rake performance` (from the repository
-root).
-
-This produces a report image in each of `performance/dirk` and
-`performance/rolftimmermans`. The reports below were generated on macOS 26.5.1,
+root). It produces three reports. The ones below were generated on macOS 26.5.1,
 Apple M5 Pro.
 
-### dirk
-
-<img src="https://raw.githubusercontent.com/malomalo/turbostreamer/master/performance/dirk/report.png" width="600" alt="dirk benchmark: iterations/sec, GC and RSS for rabl, jbuilder and turbostreamer">
-
-### rolftimmermans
+### rolftimmermans — 22KB document, nothing cached
 
 <img src="https://raw.githubusercontent.com/malomalo/turbostreamer/master/performance/rolftimmermans/report.png" width="600" alt="rolftimmermans benchmark: iterations/sec, GC and RSS for rabl, jbuilder and turbostreamer">
 
-The two benchmarks measure different shapes of work. `dirk` renders a large,
-deeply nested document with fragment caching — the case streaming is built for.
-`rolftimmermans` builds one small Hash and hands it to Oj in a single dump; there
-is little to stream, and a builder that assembles a Hash up front comes out
-ahead.
+A small document built from a handful of values. RABL's template evaluates to a
+single Ruby Hash which Oj then serializes in one pass, so it runs at Oj's own
+speed. TurboStreamer and jbuilder walk the same structure in Ruby — roughly 800
+DSL calls for this document — and that per-element dispatch costs more than one
+C-level pass over a finished object graph. At this size there is nothing to
+stream.
+
+### dirk — 5MB document, fragment caching off
+
+<img src="https://raw.githubusercontent.com/malomalo/turbostreamer/master/performance/dirk/report-uncached.png" width="600" alt="dirk benchmark without caching: iterations/sec, GC and RSS for rabl, jbuilder and turbostreamer">
+
+The same 5MB nested document, rebuilt from scratch on every iteration by all
+four. This is the comparison of the builders themselves.
+
+### dirk — 5MB document, fragment caching on
+
+<img src="https://raw.githubusercontent.com/malomalo/turbostreamer/master/performance/dirk/report-cached.png" width="600" alt="dirk benchmark with caching: iterations/sec, GC and RSS for rabl, jbuilder and turbostreamer">
+
+The same document with fragment caching enabled, which is how these templates
+would run in production. Read this one carefully, because the implementations
+cache different things. RABL's `cache` directive wraps the entire template, so a
+hit returns the finished document and Ruby hands the cached String back without
+copying it. TurboStreamer caches a fragment nested inside the response and still
+splices those bytes into the output on every hit, which is memory-bandwidth
+bound rather than CPU bound. jbuilder caches the data structure rather than
+serialized output, so it re-serializes 5MB on every hit. In a real response the
+bytes reach the socket either way, so the gap shown here is wider than what a
+client would see.
+
+Caching is toggled with the `PERFORM_CACHING` environment variable; see
+`performance/dirk/lib.rb`. Note that it has to be set on
+`ActionController::Base` and on the render context together — RABL consults the
+former through `Rabl::Helpers#template_cache_configured?`, while TurboStreamer
+and jbuilder ask the controller they are rendered with. Setting only one leaves
+the other library's caching silently disabled and the comparison meaningless.
 
 Special Thanks & Contributors
 -----------------------------
