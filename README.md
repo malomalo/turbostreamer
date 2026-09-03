@@ -441,48 +441,58 @@ The benchmark gems live in an optional Bundler group, so install them first:
     bundle install
 
 To run the benchmarks: `bundle exec rake performance` (from the repository
-root). It produces three reports. The ones below were generated on macOS 26.5.1,
-Apple M5 Pro.
+root). It produces four reports — two document shapes, each run with fragment
+caching off and on. The ones below were generated on macOS 26.5.1, Apple M5 Pro.
 
-### rolftimmermans — 22KB document, nothing cached
+Both suites render live values before and after a cached fragment. A response
+that is cacheable end to end would be cached at the controller rather than
+rendered at all, so the case worth measuring is a cached fragment with live data
+around it. With caching off, nothing is reused and the comparison is of the
+builders themselves.
 
-<img src="https://raw.githubusercontent.com/malomalo/turbostreamer/master/performance/rolftimmermans/report.png" width="600" alt="rolftimmermans benchmark: iterations/sec, GC and RSS for rabl, jbuilder and turbostreamer">
+Caching is toggled with the `PERFORM_CACHING` environment variable. It has to be
+set on `ActionController::Base` and on the render context together — RABL
+consults the former through `Rabl::Helpers#template_cache_configured?`, while
+TurboStreamer and jbuilder ask the controller they are rendered with. Setting
+only one leaves the other library's caching silently disabled.
 
-A small document built from a handful of values. RABL's template evaluates to a
-single Ruby Hash which Oj then serializes in one pass, so it runs at Oj's own
-speed. TurboStreamer and jbuilder walk the same structure in Ruby — roughly 800
-DSL calls for this document — and that per-element dispatch costs more than one
-C-level pass over a finished object graph. At this size there is nothing to
-stream.
+### rolftimmermans — 22KB document
 
-### dirk — 5MB document, fragment caching off
+An article with an author, 100 references and 100 comments. The article is the
+cached fragment; `generated_at`, `request_id` and `total_comments` stay live.
 
-<img src="https://raw.githubusercontent.com/malomalo/turbostreamer/master/performance/dirk/report-uncached.png" width="600" alt="dirk benchmark without caching: iterations/sec, GC and RSS for rabl, jbuilder and turbostreamer">
+<img src="https://raw.githubusercontent.com/malomalo/turbostreamer/master/performance/rolftimmermans/report-uncached.png" width="600" alt="rolftimmermans without caching: iterations/sec, GC and RSS for rabl, jbuilder and turbostreamer">
 
-The same 5MB nested document, rebuilt from scratch on every iteration by all
-four. This is the comparison of the builders themselves.
+Rebuilt every iteration, the four land within about 40% of each other. At this
+size there is little to stream: RABL's template evaluates to a Ruby Hash that Oj
+serializes in one pass, and that is competitive with walking the structure
+through a builder DSL.
 
-### dirk — 5MB document, fragment caching on
+<img src="https://raw.githubusercontent.com/malomalo/turbostreamer/master/performance/rolftimmermans/report-cached.png" width="600" alt="rolftimmermans with caching: iterations/sec, GC and RSS for rabl, jbuilder and turbostreamer">
 
-<img src="https://raw.githubusercontent.com/malomalo/turbostreamer/master/performance/dirk/report-cached.png" width="600" alt="dirk benchmark with caching: iterations/sec, GC and RSS for rabl, jbuilder and turbostreamer">
+With the fragment cached the gap is roughly fifty-fold, and it comes from *what*
+each library caches. TurboStreamer caches the fragment's serialized JSON and
+splices those bytes into the output stream, so a hit costs a copy and no
+serialization. RABL and jbuilder cache the data structure — RABL's key is
+`rabl/article_fragment//hash` — so a hit skips building the objects but still
+re-serializes them into the response every time.
 
-The same document with fragment caching enabled, which is how these templates
-would run in production. Read this one carefully, because the implementations
-cache different things. RABL's `cache` directive wraps the entire template, so a
-hit returns the finished document and Ruby hands the cached String back without
-copying it. TurboStreamer caches a fragment nested inside the response and still
-splices those bytes into the output on every hit, which is memory-bandwidth
-bound rather than CPU bound. jbuilder caches the data structure rather than
-serialized output, so it re-serializes 5MB on every hit. In a real response the
-bytes reach the socket either way, so the gap shown here is wider than what a
-client would see.
+### dirk — 5MB document
 
-Caching is toggled with the `PERFORM_CACHING` environment variable; see
-`performance/dirk/lib.rb`. Note that it has to be set on
-`ActionController::Base` and on the render context together — RABL consults the
-former through `Rabl::Helpers#template_cache_configured?`, while TurboStreamer
-and jbuilder ask the controller they are rendered with. Setting only one leaves
-the other library's caching silently disabled and the comparison meaningless.
+101 items each holding 101 sub-items, well past the size of a realistic
+response, included for the large-payload and memory behaviour.
+
+<img src="https://raw.githubusercontent.com/malomalo/turbostreamer/master/performance/dirk/report-uncached.png" width="600" alt="dirk without caching: iterations/sec, GC and RSS for rabl, jbuilder and turbostreamer">
+
+Rebuilt every iteration, RABL leads: one Oj pass over a finished object graph
+beats roughly 51,000 Ruby-level DSL calls. Note the RSS panel, where building
+the document costs every implementation several hundred MB.
+
+<img src="https://raw.githubusercontent.com/malomalo/turbostreamer/master/performance/dirk/report-cached.png" width="600" alt="dirk with caching: iterations/sec, GC and RSS for rabl, jbuilder and turbostreamer">
+
+With the fragment cached the same split appears, and the larger the cached
+fragment the more the re-serialization costs: TurboStreamer re-emits 5MB of
+cached bytes while RABL and jbuilder re-serialize 5MB of cached objects.
 
 Special Thanks & Contributors
 -----------------------------

@@ -10,50 +10,41 @@ module Rails
   end
 end
 
-# Fill the cache
-JbuilderTemplate.encode FakeContext.new do |json|
-  json.cached do
-    json.cache! 'jbcached' do
-      json.array! 0..100 do |i|
-        json.a i
-        json.b i
-        json.c i
-        json.d i
-        json.e i
+def render_jbuilder
+  JbuilderTemplate.encode FakeContext.new do |json|
+    json.generated_at $now
+    json.request_id $next_request_id.call
 
-        json.subitems 0..100 do |j|
-          json.f i.to_s * j
-          json.g i.to_s * j
-          json.h i.to_s * j
-          json.i i.to_s * j
-          json.j i.to_s * j
+    json.cache! 'jbcached' do
+      json.cached do
+        json.items do
+          json.array! 0..100 do |i|
+            json.a i
+            json.b i
+            json.c i
+            json.d i
+            json.e i
+
+            json.subitems 0..100 do |j|
+              json.f i.to_s * j
+              json.g i.to_s * j
+              json.h i.to_s * j
+              json.i i.to_s * j
+              json.j i.to_s * j
+            end
+          end
         end
       end
     end
+
+    json.item_count 101
   end
 end
+
+# Fill the cache
+render_jbuilder
 
 # Everthing before this is run once initially, after is the test
 __SETUP__
 
-JbuilderTemplate.encode FakeContext.new do |json|
-  json.cached do
-    json.cache! 'jbcached' do
-      json.array! 0..100 do |i|
-        json.a i
-        json.b i
-        json.c i
-        json.d i
-        json.e i
-
-        json.subitems 0..100 do |j|
-          json.f i.to_s * j
-          json.g i.to_s * j
-          json.h i.to_s * j
-          json.i i.to_s * j
-          json.j i.to_s * j
-        end
-      end
-    end
-  end
-end
+render_jbuilder

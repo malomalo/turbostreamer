@@ -33,3 +33,11 @@ class FakeContext
     @controller = FakeController.new
   end
 end
+
+# Values outside the cached fragment, so no implementation can serve the whole
+# document from cache. A response that is entirely cacheable would be cached at
+# the controller instead of rendered, so the interesting case is a cached
+# fragment with live data around it.
+$now = Time.now
+$request_id = 0
+$next_request_id = -> { $request_id += 1 }

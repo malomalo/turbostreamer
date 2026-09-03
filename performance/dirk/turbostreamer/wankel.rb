@@ -9,62 +9,49 @@ module Rails
   end
 end
 
-# Fill the cache
-TurboStreamer::Template.encode FakeContext.new do |json|
-  json.object! do
-    json.cache! 'tscached' do
-      json.cached do
-        json.array! 0..100 do |i|
-          json.object! do
-            json.a i
-            json.b i
-            json.c i
-            json.d i
-            json.e i
+def render_turbostreamer
+  TurboStreamer::Template.encode FakeContext.new do |json|
+    json.object! do
+      json.generated_at $now
+      json.request_id $next_request_id.call
 
-            json.subitems 0..100 do |j|
-              json.object! do
-                json.f i.to_s * j
-                json.g i.to_s * j
-                json.h i.to_s * j
-                json.i i.to_s * j
-                json.j i.to_s * j
+      json.cache! 'tscached' do
+        json.cached do
+          json.object! do
+            json.items do
+              json.array! 0..100 do |i|
+                json.object! do
+                  json.a i
+                  json.b i
+                  json.c i
+                  json.d i
+                  json.e i
+
+                  json.subitems 0..100 do |j|
+                    json.object! do
+                      json.f i.to_s * j
+                      json.g i.to_s * j
+                      json.h i.to_s * j
+                      json.i i.to_s * j
+                      json.j i.to_s * j
+                    end
+                  end
+                end
               end
             end
           end
         end
       end
+
+      json.item_count 101
     end
   end
 end
 
-# Everthing before this is run once initialy, after is the test
+# Fill the cache
+render_turbostreamer
+
+# Everthing before this is run once initially, after is the test
 __SETUP__
 
-TurboStreamer::Template.encode FakeContext.new do |json|
-  json.object! do
-    json.cache! 'tscached' do
-      json.cached do
-        json.array! 0..100 do |i|
-          json.object! do
-            json.a i
-            json.b i
-            json.c i
-            json.d i
-            json.e i
-
-            json.subitems 0..100 do |j|
-              json.object! do
-                json.f i.to_s * j
-                json.g i.to_s * j
-                json.h i.to_s * j
-                json.i i.to_s * j
-                json.j i.to_s * j
-              end
-            end
-          end
-        end
-      end
-    end
-  end
-end
+render_turbostreamer
