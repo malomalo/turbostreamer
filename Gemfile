@@ -8,6 +8,8 @@ gemspec
 group :performance, optional: true do
   gem 'analyzer'
   gem 'jbuilder'
+  # analyzer runs benchmark-ips with `stats: :bootstrap`, which needs kalibera.
+  gem 'kalibera'
   gem 'multi_json'
   gem 'rabl'
 end
