@@ -13,16 +13,14 @@ class TurboStreamer
         require 'turbostreamer'
         require 'action_view/turbo_buffer'
         require 'action_view/streaming_turbo_buffer'
-        require 'turbostreamer/action_view/template_renderer'
-        require 'turbostreamer/action_view/streaming_template_renderer'
+        require 'action_view/turbo_template_renderer'
+        require 'action_view/streaming_turbo_template_renderer'
 
-        # Rooted with `::` -- TurboStreamer::ActionView shadows the framework
-        # inside this class body.
-        ::ActionView::TemplateRenderer.prepend(TurboStreamer::ActionView::TemplateRenderer)
-        ::ActionView::StreamingTemplateRenderer.prepend(TurboStreamer::ActionView::StreamingTemplateRenderer)
+        ActionView::TemplateRenderer.prepend(ActionView::TurboTemplateRenderer)
+        ActionView::StreamingTemplateRenderer.prepend(ActionView::StreamingTurboTemplateRenderer)
 
         # Register Turbostreamer with Rails
-        ::ActionView::Template.register_template_handler :streamer, TurboStreamer::Handler
+        ActionView::Template.register_template_handler :streamer, TurboStreamer::Handler
         
         # Setup the default for oj to be rails mode by default unless options
         # have already been set
