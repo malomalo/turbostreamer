@@ -67,7 +67,9 @@ class TurboStreamer::Template < TurboStreamer
   #   json.yield!
   def yield!
     content = @yield_content
-    raise Errors::NothingToYieldError.build if content.nil?
+    # The same thing Ruby says for a `yield` with no block behind it, because
+    # that is what this is.
+    raise ::LocalJumpError, 'no block given (yield)' if content.nil?
 
     # The template renders through this same builder, so it would otherwise
     # still see the content and yield straight back into itself. Clear it while

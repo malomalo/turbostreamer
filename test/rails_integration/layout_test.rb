@@ -51,11 +51,15 @@ class RailsIntegration::LayoutTest < ActiveSupport::TestCase
     assert_equal TurboStreamer, TurboStreamer::Template.instance_method(:value!).owner
   end
 
-  test "json.yield! outside a layout raises" do
+  # The same class and wording Ruby uses for a `yield` with no block behind it,
+  # because that is what this is.
+  test "json.yield! outside a layout raises LocalJumpError" do
     view = ActionView::Base.with_empty_template_cache.new(ActionView::LookupContext.new([]), {}, nil)
     builder = TurboStreamer::Template.new(view)
 
-    assert_raises(TurboStreamer::Errors::NothingToYieldError) { builder.yield! }
+    error = assert_raises(LocalJumpError) { builder.yield! }
+
+    assert_equal 'no block given (yield)', error.message
   end
 
   test "a template without a layout is unaffected without streaming" do
@@ -209,7 +213,7 @@ class RailsIntegration::LayoutTest < ActiveSupport::TestCase
         layout_source: 'json.object! { json.key! :data; json.yield! }')
     end
 
-    assert_kind_of TurboStreamer::Errors::NothingToYieldError, error.cause
+    assert_kind_of LocalJumpError, error.cause
   end
 
 end

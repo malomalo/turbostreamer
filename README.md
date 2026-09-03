@@ -246,9 +246,9 @@ end
 ```
 
 The one place it cannot go is inside the template itself — a template has
-nothing to yield, so `json.yield!` there raises
-`TurboStreamer::Errors::NothingToYieldError`, exactly as it would in a template
-rendered without a layout.
+nothing to yield, so `json.yield!` there raises `LocalJumpError: no block given
+(yield)`, the same as Ruby gives for a `yield` with no block, and the same as
+`json.yield!` in a template rendered without a layout.
 
 #### Why `json.yield!` and not `yield`
 
