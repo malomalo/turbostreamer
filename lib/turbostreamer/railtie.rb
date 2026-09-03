@@ -22,12 +22,23 @@ class TurboStreamer
         # Register Turbostreamer with Rails
         ActionView::Template.register_template_handler :streamer, TurboStreamer::Handler
         
-        # Setup the default for oj to be rails mode by default unless options
-        # have already been set
-        if TurboStreamer.default_encoder_for(:json).name == 'TurboStreamer::OjEncoder'
-          if !TurboStreamer.has_default_encoder_options?(:oj)
-            TurboStreamer.set_default_encoder_options(:oj, mode: :rails)
-          end
+        # Resolve the encoder once, here, the way an app resolves its cache
+        # store at boot. Left unset, default_encoder_for falls through to
+        # get_encoder on every render, and the `require` in there re-scans
+        # $LOAD_PATH each time.
+        encoder = TurboStreamer.default_encoder_for(:json)
+        TurboStreamer.set_default_encoder(:json, encoder)
+
+        # Oj's :rails mode is what escapes HTML entities the way
+        # ActiveSupport::JSON does, so a payload embedded in a <script> tag is
+        # safe. Merge rather than skip when options are already set: an app
+        # setting an unrelated one -- buffer_size, say -- would otherwise lose
+        # the mode along with the escaping, silently. Anything the app set
+        # explicitly still wins.
+        if encoder.name == 'TurboStreamer::OjEncoder'
+          TurboStreamer.set_default_encoder_options(
+            :oj, { mode: :rails }.merge(TurboStreamer.default_encoder_options(:oj))
+          )
         end
         
         require 'turbostreamer/dependency_tracker'

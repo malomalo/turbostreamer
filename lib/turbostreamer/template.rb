@@ -250,17 +250,21 @@ class TurboStreamer::Template < TurboStreamer
     end
   end
 
-  def _partial_options?(options)
-    ::Hash === options && options.key?(:as) && options.key?(:partial)
-  end
-
-  def _is_active_model?(object)
-    object.class.respond_to?(:model_name) && object.respond_to?(:to_partial_path)
-  end
-
+  # The base rule, plus the case only Rails has: a nil collection rendered
+  # through a partial -- `json.comments nil, partial: 'comment/comment', as:
+  # :comment` -- has to reach array! to come out as [] rather than being
+  # treated as a single object to extract from.
+  #
+  # Written out rather than calling super, because child! runs this on every
+  # element and the second dispatch showed up. It stays here rather than moving
+  # into TurboStreamer because partial! is a Template method: in a plain
+  # builder the `:as` clause has nothing to route to, and would only turn
+  # `json.foo nil, as: :x` from a TypeError into [].
   def _eachable_arguments?(value, *args)
-    return true if super
+    return true if value.respond_to?(:each) && !value.is_a?(Hash)
+
     options = args.last
     ::Hash === options && options.key?(:as)
   end
+
 end
