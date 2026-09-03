@@ -29,7 +29,9 @@ class TurboStreamer::Template < TurboStreamer
     json = new(context, output_buffer: buffer || ::ActionView::TurboBuffer.new(String.new))
     json.yield_content = render_inner
 
-    layout.render(context, locals.merge(json: json)) { |*| raise Errors::YieldError.build }
+    layout.render(context, locals.merge(json: json)) do |*|
+      raise ::LocalJumpError, '`yield` is not supported in a .json.streamer layout, use `json.yield!`'
+    end
 
     json.target!
   end

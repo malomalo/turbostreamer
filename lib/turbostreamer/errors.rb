@@ -7,12 +7,5 @@ class TurboStreamer
         new("Can't merge #{updates.inspect} which isn't Hash or Array")
       end
     end
-
-    class YieldError < ::StandardError
-      def self.build
-        new("use `json.yield!` in a .json.streamer layout, `yield` is not supported")
-      end
-    end
-
   end
 end

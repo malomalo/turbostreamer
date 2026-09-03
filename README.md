@@ -257,7 +257,7 @@ a value here — it is written into the stream at the position the layout has
 reached. Placing it therefore has to go through the builder, and `json.yield!`
 matches the rest of the DSL, where the methods that write something end in `!`:
 `object!`, `array!`, `child!`, `partial!`, `merge!`, `cache!`. A bare `yield` in
-a `.json.streamer` layout raises `TurboStreamer::Errors::YieldError`.
+a `.json.streamer` layout raises `LocalJumpError` naming `json.yield!`.
 
 #### Layouts are not ERB layouts
 
