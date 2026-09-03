@@ -26,17 +26,11 @@ class TurboStreamer::Template < TurboStreamer
       @render = render
     end
 
-    # Single use: a stream cannot be replayed, and a deferred that reached the
-    # template itself would recurse forever.
+    # A layout may yield more than once, as an ERB one may. Each yield renders
+    # the template again rather than replaying a buffer, so anything it does
+    # happens again too.
     def render_into(json)
-      raise TurboStreamer::Errors::ContentAlreadyYieldedError.build if @rendered
-
-      @rendered = true
       @render.call(json)
-    end
-
-    def rendered?
-      @rendered
     end
 
   end
@@ -54,8 +48,6 @@ class TurboStreamer::Template < TurboStreamer
     json.deferred_content = content
 
     layout.render(context, locals.merge(json: json)) { |*| content }
-
-    raise Errors::LayoutDidNotYieldError.build(layout.identifier) unless content.rendered?
 
     json.target!
   end

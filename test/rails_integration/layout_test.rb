@@ -44,15 +44,13 @@ class RailsIntegration::LayoutTest < ActiveSupport::TestCase
     assert_equal({ 'meta' => 1, 'data' => { 'a' => 1, 'b' => 'two' } }, JSON.parse(output))
   end
 
-  test "json.yield! and yield share the single-use guard" do
-    error = assert_raises(ActionView::Template::Error) do
-      render_template(
-        'json.object! { json.a 1 }',
-        layout_source: 'json.array! { json.child! yield; json.child! { json.yield! } }'
-      )
-    end
+  test "yield and json.yield! reach the same content" do
+    output = render_template(
+      'json.object! { json.a 1 }',
+      layout_source: 'json.array! { json.child! yield; json.child! { json.yield! } }'
+    )
 
-    assert_kind_of TurboStreamer::Errors::ContentAlreadyYieldedError, error.cause
+    assert_equal([{ 'a' => 1 }, { 'a' => 1 }], JSON.parse(output))
   end
 
   test "json.yield! outside a layout raises" do
@@ -176,25 +174,34 @@ class RailsIntegration::LayoutTest < ActiveSupport::TestCase
     assert_equal 2, compiles, 'the template is being recompiled on every render'
   end
 
-  test "a layout that never yields raises" do
-    error = assert_raises(TurboStreamer::Errors::LayoutDidNotYieldError) do
-      render_template('json.object! { json.a 1 }', layout_source: 'json.object! { json.meta 1 }')
-    end
+  # As in ERB, where a layout without <%= yield %> renders without the template.
+  test "a layout that never yields renders without the template" do
+    output = render_template('json.object! { json.a 1 }', layout_source: 'json.object! { json.meta 1 }')
 
-    assert_match 'layouts/app.json.streamer', error.message
+    assert_equal({ 'meta' => 1 }, JSON.parse(output))
   end
 
-  # A stream can't be replayed, and a yield from inside the template itself
-  # would recurse forever, so the content is single use.
-  test "yielding twice raises" do
-    error = assert_raises(ActionView::Template::Error) do
-      render_template(
-        'json.object! { json.a 1 }',
-        layout_source: 'json.array! { json.child! yield; json.child! yield }'
-      )
-    end
+  # Also as in ERB -- except that ERB replays a buffered string, where each
+  # yield here renders the template again.
+  test "a layout can yield more than once" do
+    output = render_template(
+      'json.object! { json.a 1 }',
+      layout_source: 'json.array! { json.child! yield; json.child! yield }'
+    )
 
-    assert_kind_of TurboStreamer::Errors::ContentAlreadyYieldedError, error.cause
+    assert_equal([{ 'a' => 1 }, { 'a' => 1 }], JSON.parse(output))
+  end
+
+  # The counter increments per render, so replaying a buffer would give the same
+  # number twice.
+  test "each yield renders the template again rather than replaying it" do
+    $turbostreamer_yield_renders = 0
+    output = render_template(
+      'json.object! { json.n ($turbostreamer_yield_renders += 1) }',
+      layout_source: 'json.object! { json.first yield; json.second yield }'
+    )
+
+    assert_equal({ 'first' => { 'n' => 1 }, 'second' => { 'n' => 2 } }, JSON.parse(output))
   end
 
   test "a yield from inside the template raises rather than recursing" do

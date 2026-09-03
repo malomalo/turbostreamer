@@ -246,11 +246,17 @@ end
 The two are interchangeable — use whichever reads better at the point you need
 it. They share the same content, so mixing them still only yields once.
 
-Because a stream cannot be replayed, the template renders once. A second yield
-raises `TurboStreamer::Errors::ContentAlreadyYieldedError`, and a layout that
-finishes without yielding at all raises
-`TurboStreamer::Errors::LayoutDidNotYieldError` rather than quietly returning a
-response with the template missing.
+A layout may yield more than once, and one that never yields renders without the
+template — both as an ERB layout does. The difference is that ERB replays a
+buffered string, whereas each yield here renders the template again, so anything
+it does happens again too:
+
+```ruby
+json.array! do
+  json.child! yield
+  json.child! yield   # the template is rendered a second time
+end
+```
 
 #### Layouts are not ERB layouts
 
