@@ -38,7 +38,7 @@ module ActionView
               layout: layout.virtual_path,
               locals: locals
             ) do
-              TurboStreamer::Template.with_json_local(template).render(view, locals.merge(json: json))
+              template.render(view, locals.merge(json: json))
             end
           end
         end

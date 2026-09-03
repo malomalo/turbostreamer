@@ -148,9 +148,9 @@ class RailsIntegration::LayoutTest < ActiveSupport::TestCase
 
   # Nothing else would notice: the layout renders fine, and the response is
   # simply missing everything the template was going to write.
-  # The template is rendered through a copy declaring :json, so locals can carry
-  # the layout's builder. A fresh copy per render would compile the template on
-  # every request, so the copy is memoized on the original.
+  # The layout's builder reaches the template through local_assigns, so both are
+  # rendered as ActionView found them. Building a Template of our own to carry it
+  # -- an earlier approach -- would compile on every render instead of once.
   test "the template is compiled once across renders" do
     compiles = 0
     counter = Module.new do
@@ -172,8 +172,7 @@ class RailsIntegration::LayoutTest < ActiveSupport::TestCase
       ActionView::TemplateRenderer.new(lookup_context).render(view, template: 'test', layout: 'layouts/app')
     end
 
-    # The :json copy and the layout, once each. The original is never rendered
-    # directly, so it never compiles at all.
+    # The template and the layout, once each.
     assert_equal 2, compiles, 'the template is being recompiled on every render'
   end
 

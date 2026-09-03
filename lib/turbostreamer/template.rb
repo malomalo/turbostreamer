@@ -41,19 +41,6 @@ class TurboStreamer::Template < TurboStreamer
 
   end
 
-  # A copy of a template that declares :json, so locals can carry a builder into
-  # it. Templates are compiled with `locals: []`, so a `json` local would never
-  # bind and the template would start a builder of its own.
-  #
-  # Memoized on the original -- which ActionView caches -- because a fresh
-  # Template object compiles on every render rather than once.
-  def self.with_json_local(template)
-    template.instance_variable_get(:@_turbostreamer_json_local) ||
-      template.instance_variable_set(:@_turbostreamer_json_local,
-        ::ActionView::Template.new(template.source, template.identifier, template.handler,
-          format: template.format, virtual_path: template.virtual_path, locals: [:json]))
-  end
-
   # Renders a layout with a builder of our own, so both `yield` and
   # `json.yield!` can reach the DeferredContent that renders the template the
   # layout wraps. Layout and template write to one encoder, so the yielded JSON
@@ -66,7 +53,7 @@ class TurboStreamer::Template < TurboStreamer
     json    = new(context, output_buffer: buffer || ::ActionView::TurboBuffer.new(String.new))
     json.deferred_content = content
 
-    with_json_local(layout).render(context, locals.merge(json: json)) { |*| content }
+    layout.render(context, locals.merge(json: json)) { |*| content }
 
     raise Errors::LayoutDidNotYieldError.build(layout.identifier) unless content.rendered?
 

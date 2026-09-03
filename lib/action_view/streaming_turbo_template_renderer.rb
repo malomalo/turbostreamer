@@ -26,10 +26,6 @@ module ActionView
     private
 
       def delayed_render_json(buffer, template, layout, view, locals)
-        # Wrap the given buffer in the StreamingTurboBuffer and pass it to the
-        # underlying template handler. Now, every time something is
-        # concatenated to the buffer, it is not appended to an array, but
-        # streamed straight to the client.
         output = StreamingTurboBuffer.new(buffer)
 
         ActiveSupport::Notifications.instrument(
@@ -40,7 +36,7 @@ module ActionView
         ) do
           if layout
             TurboStreamer::Template.render_with_layout(view, layout, locals, output) do |json|
-              TurboStreamer::Template.with_json_local(template).render(view, locals.merge(json: json), output)
+              template.render(view, locals.merge(json: json), output)
             end
           else
             template.render(view, locals, output)
