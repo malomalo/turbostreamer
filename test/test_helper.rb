@@ -24,7 +24,7 @@ end
 TurboStreamer::Railtie.initializers.each(&:run)
 
 # That hook does not fire until ActionView::Base is first used, and the
-# extensions -- TurboStreamer::ActionView::Buffer and friends -- do not exist
+# extensions -- ActionView::TurboBuffer and friends -- do not exist
 # until it does. Booting a real app loads ActionView::Base long before anything
 # renders; force it here so tests see the same thing whatever order they run in.
 ActionView::Base.with_empty_template_cache
