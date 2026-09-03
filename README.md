@@ -503,3 +503,10 @@ Thanks to everyone who's been a part of Jbuilder!
 
 * David Heinemeier Hansson - http://david.heinemeierhansson.com/ - for writing Jbuidler!!
 * Pavel Pravosud - http://pavel.pravosud.com/ - for maintaing and pushing Jbuilder forward
+
+And to everyone who has contributed to TurboStreamer since the fork:
+
+* [PikachuEXE](https://github.com/PikachuEXE) - for writing the Oj encoder, implementing
+  `merge!`, fixing the caching output bugs, and adding the RABL benchmark
+* [Stephen Demjanenko](https://github.com/sdemjanenko) - for streaming without requiring a
+  layout, and for tuning the Oj `StreamWriter` buffer size
