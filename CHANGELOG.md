@@ -1,7 +1,18 @@
 # Changelog
 
-1.12.0
+2.0.0
 -----
+
+Breaking:
+
+* Requires Rails 8.0+ and Ruby 3.3+.
+* `write` is no longer aliased onto `ActionView::OutputBuffer` and
+  `ActionView::StreamingBuffer`. Installing the gem used to add a non-escaping
+  append to every buffer in the application; the encoders now write into
+  `ActionView::TurboBuffer` instead. Code outside TurboStreamer that called
+  `output_buffer.write` was relying on that alias and will need `safe_concat`.
+* `ActionView::JSONStreamingBuffer` is now `ActionView::StreamingTurboBuffer`.
+
 * Optimize internal `extract!` calls to save on memory allocation [PR #25](https://github.com/malomalo/turbostreamer/pull/25)
 * Add `frozen_string_literal` magic comments
 * Remove some old Rails code
