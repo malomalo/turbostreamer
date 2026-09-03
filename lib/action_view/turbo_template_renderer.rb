@@ -1,0 +1,83 @@
+# frozen_string_literal: true
+
+# Prepended to TemplateRenderer by the railtie.
+module ActionView::TurboTemplateRenderer
+
+  private
+
+    # ActionView renders the template into a string first and then hands that
+    # string to the layout. That works for ERB, where the layout concatenates
+    # text.
+    #
+    # For streamer templates the order is reversed. The layout renders first
+    # and its `yield` renders the template into the layout's own
+    # builder, which is what the streaming renderer does too.
+    def render_template(view, template, layout_name, locals)
+      return super unless template.handler == TurboStreamer::Handler
+
+      # find_layout returns nil when the layout exists in another format but
+      # not this one -- an app with layouts/application.html.erb and no JSON
+      # layout. It only raises MissingTemplate when there is no layout by
+      # that name in any format.
+      layout = layout_name && find_layout(layout_name, locals.keys, [formats.first])
+      if layout.nil?
+        log_skipped_layout(layout_name) if layout_name
+        return super
+      end
+
+      body = ActiveSupport::Notifications.instrument(
+        "render_layout.action_view",
+        identifier: layout.identifier
+      ) do
+        render_json_layout(view, layout, locals) do |json|
+          ActiveSupport::Notifications.instrument(
+            "render_template.action_view",
+            identifier: template.identifier,
+            layout: layout.virtual_path,
+            locals: locals
+          ) do
+            template.render(view, locals.merge(json: json))
+          end
+        end
+      end
+
+      # render_json_layout hands back its buffer; the caller wants a String.
+      build_rendered_template(body.to_s, template)
+    end
+
+    # Renders a layout with a builder of our own, so `json.yield!` has something
+    # to place. Layout and template write to one encoder, so the yielded JSON
+    # lands where it is placed with its commas and nesting intact.
+    #
+    # `render_inner` renders the template the layout wraps, taking the builder
+    # to render into; the buffer, when given, is the streaming one both renders
+    # share. Shared with StreamingTurboTemplateRenderer, which reaches it
+    # through StreamingTemplateRenderer's superclass.
+    #
+    # The block exists only to give a bare `yield` a useful failure. Without one
+    # it would be `no block given (yield)`, which says nothing about layouts.
+    def render_json_layout(view, layout, locals, buffer = nil, &render_inner)
+      # ActionView::TurboBuffer in full: the compact `module
+      # ActionView::TurboTemplateRenderer` above does not nest ActionView
+      # lexically, so a bare TurboBuffer would not resolve.
+      json = TurboStreamer::Template.new(view, output_buffer: buffer || ActionView::TurboBuffer.new(String.new))
+      json.yield_content = render_inner
+
+      layout.render(view, locals.merge(json: json)) do |*|
+        raise ::LocalJumpError, '`yield` is not supported in a .json.streamer layout, use `json.yield!`'
+      end
+
+      json.target!
+    end
+
+    def log_skipped_layout(layout_name)
+      logger = ActionView::Base.logger
+      return unless logger
+
+      logger.debug do
+        "  Skipped layout #{layout_name} -- it does not exist for " \
+        "#{formats.first.inspect}; rendering without a layout"
+      end
+    end
+
+end

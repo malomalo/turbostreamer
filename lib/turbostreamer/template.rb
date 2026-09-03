@@ -14,6 +14,10 @@ class TurboStreamer::Template < TurboStreamer
     @context = context
     super(*args, &block)
   end
+
+  # The proc that renders the template this layout wraps, for json.yield! to
+  # place.
+  attr_accessor :yield_content
   
   def partial!(name_or_options, locals = {})
     if name_or_options.class.respond_to?(:model_name) && name_or_options.respond_to?(:to_partial_path)
@@ -34,6 +38,29 @@ class TurboStreamer::Template < TurboStreamer
       end
       
       _render_partial_with_options options
+    end
+  end
+
+  # The same thing as a statement rather than a value, for a layout that would
+  # rather write the key itself:
+  #
+  #   json.key! :data
+  #   json.yield!
+  def yield!
+    content = @yield_content
+    # The same thing Ruby says for a `yield` with no block behind it, because
+    # that is what this is.
+    raise ::LocalJumpError, 'no block given (yield)' if content.nil?
+
+    # The template renders through this same builder, so it would otherwise
+    # still see the content and yield straight back into itself. Clear it while
+    # it renders -- a template has nothing to yield -- and put it back, so a
+    # layout can go on to yield again.
+    begin
+      @yield_content = nil
+      content.call(self)
+    ensure
+      @yield_content = content
     end
   end
 
@@ -223,17 +250,21 @@ class TurboStreamer::Template < TurboStreamer
     end
   end
 
-  def _partial_options?(options)
-    ::Hash === options && options.key?(:as) && options.key?(:partial)
-  end
-
-  def _is_active_model?(object)
-    object.class.respond_to?(:model_name) && object.respond_to?(:to_partial_path)
-  end
-
+  # The base rule, plus the case only Rails has: a nil collection rendered
+  # through a partial -- `json.comments nil, partial: 'comment/comment', as:
+  # :comment` -- has to reach array! to come out as [] rather than being
+  # treated as a single object to extract from.
+  #
+  # Written out rather than calling super, because child! runs this on every
+  # element and the second dispatch showed up. It stays here rather than moving
+  # into TurboStreamer because partial! is a Template method: in a plain
+  # builder the `:as` clause has nothing to route to, and would only turn
+  # `json.foo nil, as: :x` from a TypeError into [].
   def _eachable_arguments?(value, *args)
-    return true if super
+    return true if value.respond_to?(:each) && !value.is_a?(Hash)
+
     options = args.last
     ::Hash === options && options.key?(:as)
   end
+
 end

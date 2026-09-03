@@ -1,7 +1,7 @@
 require 'bundler/setup'
 require "bundler/gem_tasks"
 
-require 'byebug'
+require 'debug'
 require 'fileutils'
 require "rake/testtask"
 
@@ -12,7 +12,7 @@ ENCODERS.each do |encoder|
   namespace :test do
     Rake::TestTask.new(encoder => ["#{encoder}:env", "test:coverage"]) do |t|
       t.libs << 'lib' << 'test'
-      t.test_files = FileList['test/**/*_test.rb']
+      t.test_files = FileList[ARGV[1] ? ARGV[1] : 'test/**/*_test.rb']
       t.warning = true
       t.verbose = false
     end
@@ -29,7 +29,6 @@ namespace :test do
     require 'simplecov'
     SimpleCov.start do
       add_group 'lib', 'lib'
-      add_group 'ext', 'ext'
       add_filter "/test"
     end
   end

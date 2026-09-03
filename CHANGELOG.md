@@ -1,13 +1,40 @@
 # Changelog
 
-Unreleased
+2.0.0
 -----
+
+Breaking:
+
+* Requires Rails 8.0+ and Ruby 3.3+.
+* `write` is no longer aliased onto `ActionView::OutputBuffer` and
+  `ActionView::StreamingBuffer`. Installing the gem used to add a non-escaping
+  append to every buffer in the application; the encoders now write into
+  `ActionView::TurboBuffer` instead. Code outside TurboStreamer that called
+  `output_buffer.write` was relying on that alias and will need `safe_concat`.
+* `ActionView::JSONStreamingBuffer` is now `ActionView::StreamingTurboBuffer`.
+
 * Optimize internal `extract!` calls to save on memory allocation [PR #25](https://github.com/malomalo/turbostreamer/pull/25)
 * Add `frozen_string_literal` magic comments
 * Remove some old Rails code
-* Add Rails 7.2, 8.0 & 8.1 to CI; drop support for Rails < 7.2 and Ruby < 3.3
+* Add Rails 8.0 & 8.1 to CI; drop support for Rails < 8.0 and Ruby < 3.3
 * Package `LICENSE` and `CHANGELOG.md` with the gem, and fix `spec.files` dropping
   everything but `README.md` when the gem is built on a shell without brace expansion
+* Layouts now work. A `.json.streamer` layout places the template with
+  `json.yield!`. Layout and template share one builder, so the template writes
+  into the same stream rather than being buffered and spliced. The layout
+  renders first and yields to the template, the reverse of an ERB layout.
+  Applies both to `render stream: true` and to ordinary rendering; previously a
+  streamed layout was resolved and then discarded, and an unstreamed one had no
+  way to place the template's JSON at all.
+* Fix streaming JSON raising `NoMethodError: undefined method 'instrument'`.
+  `AbstractRenderer#instrument` was removed in Rails 6.1, so every streamed
+  render failed -- silently, since `Body#each` rescues and substitutes an error
+  page. It now notifies `render_template.action_view` directly.
+* Stop aliasing `write` onto `ActionView::OutputBuffer` and
+  `ActionView::StreamingBuffer`. The encoders now stream into `TurboStreamer::Buffer`,
+  which wraps the ActionView buffer instead of patching it, so the non-escaping
+  `write` is no longer added to every buffer in the application.
+  `ActionView::JSONStreamingBuffer` moves to `TurboStreamer::StreamingBuffer`.
 
 1.11.0 - 2024-04-29
 -----

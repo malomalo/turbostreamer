@@ -191,6 +191,85 @@ json.partial! partial: 'posts/post', collection: @posts, as: :post
 json.comments @post.comments, partial: 'comment/comment', as: :comment
 ```
 
+### Layouts
+
+A `.json.streamer` layout can wrap the template. Call `json.yield!` where the
+template's JSON should go:
+
+```ruby
+# app/views/layouts/application.json.streamer
+json.object! do
+  json.meta do
+    json.object! { json.version 1 }
+  end
+  json.key! :data
+  json.yield!
+end
+
+# app/views/posts/index.json.streamer
+json.array! @posts, :id, :title
+
+# => { "meta": { "version": 1 }, "data": [ { "id": 1, "title": "..." } ] }
+```
+
+The layout and the template share one builder, so the template writes straight
+into the same stream at the point it is yielded — nothing is buffered into a
+string and spliced back in. This works whether or not the response is streamed
+with `render stream: true`; when it is, a large response still arrives in
+chunks.
+
+`json.yield!` goes anywhere a value goes, including inside an array:
+
+```ruby
+json.array! do
+  json.child! { json.object! { json.first true } }
+  json.child! { json.yield! }
+end
+```
+
+A layout that only wraps is just the one call:
+
+```ruby
+json.yield!
+```
+
+A layout may yield more than once, and one that never yields renders without the
+template — both as an ERB layout does. The difference is that ERB replays a
+buffered string, whereas each `json.yield!` renders the template again, so
+anything it does happens again too:
+
+```ruby
+json.array! do
+  json.child! { json.yield! }
+  json.child! { json.yield! }   # the template is rendered a second time
+end
+```
+
+#### Why `json.yield!` and not `yield`
+
+`yield` is a Ruby keyword that returns a value, and the template's JSON is never
+a value here — it is written into the stream at the position the layout has
+reached. Placing it therefore has to go through the builder, and `json.yield!`
+matches the rest of the DSL, where the methods that write something end in `!`:
+`object!`, `array!`, `child!`, `partial!`, `merge!`, `cache!`. A bare `yield` in
+a `.json.streamer` layout raises `LocalJumpError` naming `json.yield!`.
+
+#### Layouts are not ERB layouts
+
+Two differences worth knowing:
+
+* **The layout renders first**, and `json.yield!` renders the template it wraps.
+  An ERB layout is the other way around: the template is rendered up front and
+  the layout concatenates the resulting string. Reversing it is what lets the
+  template write into the layout's builder instead of being encoded to a string
+  and spliced back in — which neither encoder can do into a keyed slot.
+* **There is one yield, and it has no name.** `content_for` / `provide` have no
+  analogue, and a layout cannot ask for content the template defines later. In
+  ERB that works because the layout runs in a Fiber and suspends until the
+  template provides the key; here the layout calls the template directly, so
+  there is nothing to suspend. A JSON document's shape is positional, so one
+  yield in one place is generally what you want.
+
 You can explicitly make TurboStreamer object return null if you want:
 
 ``` ruby

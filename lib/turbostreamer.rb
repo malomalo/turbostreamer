@@ -34,7 +34,7 @@ class TurboStreamer
       @encoder_options = @@encoder_options[options[:encoder]]
     elsif options[:encoder].nil?
       @encoder = TurboStreamer.default_encoder_for(options[:mime] || :json)
-      if encoder_symbol = ENCODERS[options[:mime] || :json].find { |k, v| v == @encoder.name.delete_prefix('TurboStreamer::').delete_suffix('Encoder') }&.first
+      if encoder_symbol = TurboStreamer.encoder_symbol_for(options[:mime] || :json, @encoder)
         @encoder_options = @@encoder_options[encoder_symbol]
       else
         @encoder_options = {}
@@ -229,6 +229,15 @@ class TurboStreamer
     @@key_formatter = formatter
   end
 
+  # The symbol an encoder is known by, given either the symbol itself or the
+  # class. Options are always keyed by symbol, since that is what a builder has
+  # to look them up with.
+  def self.encoder_symbol_for(mime, encoder)
+    return encoder if encoder.is_a?(Symbol)
+
+    ENCODERS[mime]&.key(encoder.name.delete_prefix('TurboStreamer::').delete_suffix('Encoder'))
+  end
+
   def self.set_default_encoder(mime, encoder, default_options=nil)
     @@default_encoders[mime] = if encoder.is_a?(Symbol)
       get_encoder(mime, encoder)
@@ -236,20 +245,41 @@ class TurboStreamer
       encoder
     end
 
-    @@encoder_options[encoder] = default_options if default_options
+    # Keyed by symbol even when handed a class -- keying by the class stored
+    # options a builder would never find, dropping them silently.
+    if default_options
+      @@encoder_options[encoder_symbol_for(mime, encoder) || encoder] = default_options
+    end
   end
 
   def self.set_default_encoder_options(encoder, options)
     @@encoder_options[encoder] = options
   end
 
+  # Does not use [] -- @@encoder_options defaults new keys to {} *and assigns
+  # them*, so reading through it would make has_default_encoder_options? true.
+  def self.default_encoder_options(encoder)
+    @@encoder_options.fetch(encoder, {})
+  end
+
   def self.has_default_encoder_options?(encoder)
     @@encoder_options.has_key?(encoder)
   end
 
+  # Memoized because `require` with a relative feature name re-scans $LOAD_PATH
+  # on every call, stat-ing each entry, even once the file is loaded. This runs
+  # per render whenever no default encoder has been set -- which is the case in
+  # a Rails app, since the railtie only sets encoder options -- and the stat
+  # storm dwarfed the encoding itself.
+  #
+  # A [mime, key] pair always names the same class, so caching it does not
+  # affect set_default_encoder: default_encoder_for still reads @@default_encoders.
   def self.get_encoder(mime, key)
-    require "turbostreamer/encoders/#{key}"
-    Object.const_get("TurboStreamer::#{ENCODERS[mime][key]}Encoder")
+    @encoders ||= {}
+    @encoders[[mime, key]] ||= begin
+      require "turbostreamer/encoders/#{key}"
+      Object.const_get("TurboStreamer::#{ENCODERS[mime][key]}Encoder")
+    end
   end
 
   def self.default_encoder_for(mime)
@@ -332,10 +362,12 @@ class TurboStreamer
   def target!
     @encoder.flush
 
-    if @encoder.output.is_a?(::StringIO)
-      @encoder.output.string
+    output = @encoder.output
+
+    if output.is_a?(::StringIO)
+      output.string
     else
-      @encoder.output
+      output
     end
   end
 

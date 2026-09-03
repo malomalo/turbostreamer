@@ -23,12 +23,12 @@ Gem::Specification.new do |spec|
   spec.extra_rdoc_files = %w(README.md)
   spec.rdoc_options.concat ['--main', 'README.md']
 
-  spec.files         = `git ls-files -z -- README.md LICENSE CHANGELOG.md lib ext`.split("\x0")
+  spec.files         = `git ls-files -z -- README.md LICENSE CHANGELOG.md lib`.split("\x0")
   spec.require_paths = ["lib"]
 
   spec.required_ruby_version = '>= 3.3.0'
 
-  spec.add_runtime_dependency 'activesupport', '>= 7.2.0'
+  spec.add_runtime_dependency 'activesupport', '>= 8.0.0'
 
   spec.add_development_dependency "rake"
   spec.add_development_dependency "wankel"
@@ -36,7 +36,7 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency "oj"
   spec.add_development_dependency "mocha"
   spec.add_development_dependency "simplecov"
-  spec.add_development_dependency "byebug"
+  spec.add_development_dependency "debug"
   spec.add_development_dependency "actionview"
   spec.add_development_dependency "actionpack"
   spec.add_development_dependency "railties"
