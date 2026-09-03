@@ -1,11 +1,11 @@
 # Changelog
 
-Unreleased
+1.12.0
 -----
 * Optimize internal `extract!` calls to save on memory allocation [PR #25](https://github.com/malomalo/turbostreamer/pull/25)
 * Add `frozen_string_literal` magic comments
 * Remove some old Rails code
-* Add Rails 7.2, 8.0 & 8.1 to CI; drop support for Rails < 7.2 and Ruby < 3.3
+* Add Rails 8.0 & 8.1 to CI; drop support for Rails < 8.0 and Ruby < 3.3
 * Package `LICENSE` and `CHANGELOG.md` with the gem, and fix `spec.files` dropping
   everything but `README.md` when the gem is built on a shell without brace expansion
 * Layouts now work. A `.json.streamer` layout places the template with
