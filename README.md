@@ -245,9 +245,10 @@ json.array! do
 end
 ```
 
-The one place it cannot go is inside the template itself. The template shares
-the layout's builder, so a `json.yield!` there would call back into itself;
-that raises `TurboStreamer::Errors::RecursiveYieldError`.
+The one place it cannot go is inside the template itself — a template has
+nothing to yield, so `json.yield!` there raises
+`TurboStreamer::Errors::NothingToYieldError`, exactly as it would in a template
+rendered without a layout.
 
 #### Why `json.yield!` and not `yield`
 

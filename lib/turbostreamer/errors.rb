@@ -20,12 +20,5 @@ class TurboStreamer
       end
     end
 
-    class RecursiveYieldError < ::StandardError
-      def self.build
-        new("`yield!` was called while the template it renders was still " \
-            "rendering. The template shares the layout's builder, so yielding " \
-            "from inside it would never terminate.")
-      end
-    end
   end
 end

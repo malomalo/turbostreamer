@@ -66,17 +66,18 @@ class TurboStreamer::Template < TurboStreamer
   #   json.key! :data
   #   json.yield!
   def yield!
-    raise Errors::NothingToYieldError.build if @yield_content.nil?
-    # A layout may yield repeatedly, as an ERB one may -- but not from inside
-    # the template it is rendering. That template shares this builder, so its
-    # yield! would call straight back into itself.
-    raise Errors::RecursiveYieldError.build if @yielding
+    content = @yield_content
+    raise Errors::NothingToYieldError.build if content.nil?
 
+    # The template renders through this same builder, so it would otherwise
+    # still see the content and yield straight back into itself. Clear it while
+    # it renders -- a template has nothing to yield -- and put it back, so a
+    # layout can go on to yield again.
     begin
-      @yielding = true
-      @yield_content.call(self)
+      @yield_content = nil
+      content.call(self)
     ensure
-      @yielding = false
+      @yield_content = content
     end
   end
 

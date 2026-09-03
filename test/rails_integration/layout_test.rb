@@ -200,16 +200,16 @@ class RailsIntegration::LayoutTest < ActiveSupport::TestCase
     assert_equal({ 'first' => { 'n' => 1 }, 'second' => { 'n' => 2 } }, JSON.parse(output))
   end
 
-  # The template shares the layout's builder, so its yield! would call straight
-  # back into itself -- a stack overflow rather than an error, without the
-  # re-entrancy guard.
-  test "json.yield! from inside the template raises rather than recursing" do
+  # A template has nothing to yield. It shares the layout's builder, so the
+  # content is cleared while it renders -- otherwise it would still see it and
+  # yield straight back into itself.
+  test "json.yield! from inside the template raises" do
     error = assert_raises(ActionView::Template::Error) do
       render_template('json.object! { json.key! :oops; json.yield! }',
         layout_source: 'json.object! { json.key! :data; json.yield! }')
     end
 
-    assert_kind_of TurboStreamer::Errors::RecursiveYieldError, error.cause
+    assert_kind_of TurboStreamer::Errors::NothingToYieldError, error.cause
   end
 
 end
