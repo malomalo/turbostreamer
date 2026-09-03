@@ -1,7 +1,7 @@
 require 'bundler/setup'
 require "bundler/gem_tasks"
 
-require 'byebug'
+require 'debug'
 require 'fileutils'
 require "rake/testtask"
 
