@@ -29,7 +29,7 @@ module ActionView::TurboTemplateRenderer
         "render_layout.action_view",
         identifier: layout.identifier
       ) do
-        TurboStreamer::Template.render_with_layout(view, layout, locals) do |json|
+        render_json_layout(view, layout, locals) do |json|
           ActiveSupport::Notifications.instrument(
             "render_template.action_view",
             identifier: template.identifier,
@@ -41,8 +41,33 @@ module ActionView::TurboTemplateRenderer
         end
       end
 
-      # render_with_layout hands back its buffer; the caller wants a String.
+      # render_json_layout hands back its buffer; the caller wants a String.
       build_rendered_template(body.to_s, template)
+    end
+
+    # Renders a layout with a builder of our own, so `json.yield!` has something
+    # to place. Layout and template write to one encoder, so the yielded JSON
+    # lands where it is placed with its commas and nesting intact.
+    #
+    # `render_inner` renders the template the layout wraps, taking the builder
+    # to render into; the buffer, when given, is the streaming one both renders
+    # share. Shared with StreamingTurboTemplateRenderer, which reaches it
+    # through StreamingTemplateRenderer's superclass.
+    #
+    # The block exists only to give a bare `yield` a useful failure. Without one
+    # it would be `no block given (yield)`, which says nothing about layouts.
+    def render_json_layout(view, layout, locals, buffer = nil, &render_inner)
+      # ActionView::TurboBuffer in full: the compact `module
+      # ActionView::TurboTemplateRenderer` above does not nest ActionView
+      # lexically, so a bare TurboBuffer would not resolve.
+      json = TurboStreamer::Template.new(view, output_buffer: buffer || ActionView::TurboBuffer.new(String.new))
+      json.yield_content = render_inner
+
+      layout.render(view, locals.merge(json: json)) do |*|
+        raise ::LocalJumpError, '`yield` is not supported in a .json.streamer layout, use `json.yield!`'
+      end
+
+      json.target!
     end
 
     def log_skipped_layout(layout_name)

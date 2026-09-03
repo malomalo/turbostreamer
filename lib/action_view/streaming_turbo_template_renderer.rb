@@ -33,7 +33,7 @@ module ActionView::StreamingTurboTemplateRenderer
         locals: locals
       ) do
         if layout
-          TurboStreamer::Template.render_with_layout(view, layout, locals, output) do |json|
+          render_json_layout(view, layout, locals, output) do |json|
             template.render(view, locals.merge(json: json), output)
           end
         else

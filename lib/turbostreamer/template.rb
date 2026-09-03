@@ -15,27 +15,6 @@ class TurboStreamer::Template < TurboStreamer
     super(*args, &block)
   end
 
-  # Renders a layout with a builder of our own, so `json.yield!` can reach the
-  # proc that renders the template the layout wraps. Layout and template write
-  # to one encoder, so the yielded JSON lands in place with its commas and
-  # nesting intact.
-  #
-  # `render_inner` renders that template, taking the builder to render into; the
-  # buffer, when given, is the streaming one both renders share.
-  #
-  # The block exists only to give a bare `yield` a useful failure. Without one
-  # it would be `no block given (yield)`, which says nothing about layouts.
-  def self.render_with_layout(context, layout, locals, buffer = nil, &render_inner)
-    json = new(context, output_buffer: buffer || ::ActionView::TurboBuffer.new(String.new))
-    json.yield_content = render_inner
-
-    layout.render(context, locals.merge(json: json)) do |*|
-      raise ::LocalJumpError, '`yield` is not supported in a .json.streamer layout, use `json.yield!`'
-    end
-
-    json.target!
-  end
-
   # The proc that renders the template this layout wraps, for json.yield! to
   # place.
   attr_accessor :yield_content
