@@ -36,7 +36,7 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency "oj"
   spec.add_development_dependency "mocha"
   spec.add_development_dependency "simplecov"
-  spec.add_development_dependency "byebug"
+  spec.add_development_dependency "debug"
   spec.add_development_dependency "actionview"
   spec.add_development_dependency "actionpack"
   spec.add_development_dependency "railties"
