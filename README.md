@@ -429,19 +429,37 @@ Performance Benchmarks
 ----------------------
 
 [Gnuplot](http://www.gnuplot.info) and [YAJL](http://lloyd.github.io/yajl/) are
-required to run the benchmarks. To install:
+required to run the benchmarks; YAJL is needed by
+[`wankel`](https://github.com/malomalo/wankel), one of the encoders under test.
+To install:
 
 - `brew install gnuplot yajl` (MacOS)
 
-To run the benchmarks run: `bundle exec rake performance`
+The benchmark gems live in an optional Bundler group, so install them first:
 
-This will produce 2 graph images on in folders
-- `performance/dirk`
-- `performance/rolftimmermans`
+    bundle config set with performance
+    bundle install
 
-The reports below were generated on macOS 10.14.6 Mac mini with a 3.2 Ghz Intel Core i7:
+To run the benchmarks: `bundle exec rake performance` (from the repository
+root).
 
-<img src="performance/dirk/report.png" width="480" alt="dirk"><img src="performance/rolftimmermans/report.png" width="480" alt="rolftimmermans">
+This produces a report image in each of `performance/dirk` and
+`performance/rolftimmermans`. The reports below were generated on macOS 26.5.1,
+Apple M5 Pro.
+
+### dirk
+
+<img src="https://raw.githubusercontent.com/malomalo/turbostreamer/master/performance/dirk/report.png" width="600" alt="dirk benchmark: iterations/sec, GC and RSS for rabl, jbuilder and turbostreamer">
+
+### rolftimmermans
+
+<img src="https://raw.githubusercontent.com/malomalo/turbostreamer/master/performance/rolftimmermans/report.png" width="600" alt="rolftimmermans benchmark: iterations/sec, GC and RSS for rabl, jbuilder and turbostreamer">
+
+The two benchmarks measure different shapes of work. `dirk` renders a large,
+deeply nested document with fragment caching — the case streaming is built for.
+`rolftimmermans` builds one small Hash and hands it to Oj in a single dump; there
+is little to stream, and a builder that assembles a Hash up front comes out
+ahead.
 
 Special Thanks & Contributors
 -----------------------------
