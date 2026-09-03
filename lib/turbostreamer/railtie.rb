@@ -12,6 +12,7 @@ class TurboStreamer
         # Require turbostreamer in here so it's only loaded if needed
         require 'turbostreamer'
         require 'turbostreamer/action_view/buffer'
+        require 'turbostreamer/action_view/streaming_buffer'
         require 'turbostreamer/action_view/template_renderer'
         require 'turbostreamer/action_view/streaming_template_renderer'
 

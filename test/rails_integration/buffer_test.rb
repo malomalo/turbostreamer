@@ -6,7 +6,7 @@ class RailsIntegration::BufferTest < ActiveSupport::TestCase
     io = StringIO.new
     assert_same io, TurboStreamer::ActionView::Buffer.wrap(io)
 
-    streaming = TurboStreamer::StreamingBuffer.new(->(v) {})
+    streaming = TurboStreamer::ActionView::StreamingBuffer.new(->(v) {})
     assert_same streaming, TurboStreamer::ActionView::Buffer.wrap(streaming)
   end
 
@@ -14,11 +14,11 @@ class RailsIntegration::BufferTest < ActiveSupport::TestCase
     buffer = TurboStreamer::ActionView::Buffer.wrap(ActionView::OutputBuffer.new)
 
     assert_kind_of TurboStreamer::ActionView::Buffer, buffer
-    assert_kind_of ActionView::OutputBuffer, buffer.buffer
+    assert_kind_of ActionView::OutputBuffer, buffer
   end
 
   test "#write appends verbatim rather than HTML escaping" do
-    buffer = TurboStreamer::ActionView::Buffer.new(ActionView::OutputBuffer.new)
+    buffer = TurboStreamer::ActionView::Buffer.wrap(ActionView::OutputBuffer.new)
     buffer.write('{"a":"</script>"}')
 
     assert_equal '{"a":"</script>"}', buffer.to_s

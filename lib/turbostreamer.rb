@@ -8,7 +8,6 @@ class TurboStreamer
   autoload :Template, 'turbostreamer/template'
   autoload :KeyFormatter, 'turbostreamer/key_formatter'
   autoload :Errors, 'turbostreamer/errors'
-  autoload :StreamingBuffer, 'turbostreamer/streaming_buffer'
 
   BLANK = ::Object.new
 

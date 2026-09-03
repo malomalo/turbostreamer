@@ -33,7 +33,7 @@ class TurboStreamer
           # underlying template handler. Now, every time something is
           # concatenated to the buffer, it is not appended to an array, but
           # streamed straight to the client.
-          output  = TurboStreamer::StreamingBuffer.new(buffer)
+          output  = TurboStreamer::ActionView::StreamingBuffer.new(buffer)
           yielder = lambda { |*name| view._layout_for(*name) }
 
           ActiveSupport::Notifications.instrument(

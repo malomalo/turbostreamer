@@ -16,23 +16,35 @@ class TurboStreamer
     # It subclasses ::ActionView::OutputBuffer so that it *is* one:
     # Template#render finishes with `result.is_a?(OutputBuffer) ? result.to_s :
     # result`, so target! can hand this back directly instead of unwrapping.
-    # The content lives in the wrapped buffer, not in the inherited one, so
-    # to_s is delegated -- as is anything else a caller might read.
+    # It takes over the String the given buffer was writing to rather than
+    # keeping one of its own, so the inherited methods all report on the same
+    # content and there is nothing to delegate.
     #
-    # See TurboStreamer::StreamingBuffer for the streaming counterpart.
+    # See TurboStreamer::ActionView::StreamingBuffer for the streaming
+    # counterpart.
     class Buffer < ::ActionView::OutputBuffer
 
-      # Anything that already speaks IO -- a StringIO, a real IO, or a
-      # StreamingBuffer -- is handed back untouched.
+      # instance_of? rather than is_a?, since this class is itself an
+      # OutputBuffer and must not be wrapped a second time.
       def self.wrap(buffer)
-        buffer.respond_to?(:write) ? buffer : new(buffer)
+        if buffer.instance_of?(::ActionView::OutputBuffer)
+          new(buffer.raw_buffer)
+        elsif buffer.instance_of?(::ActionView::StreamingBuffer)
+          StreamingBuffer.new(buffer.block)
+        else
+          # Anything else has to speak IO already -- a StringIO, a real IO, or
+          # one of ours. Say so here rather than letting the encoder fail with
+          # "expected an IO Object" once it is too late to see why.
+          unless buffer.respond_to?(:write)
+            raise ArgumentError, "#{buffer.class} has no #write, so an encoder cannot stream into it"
+          end
+
+          buffer
+        end
       end
 
-      attr_reader :buffer
-
-      def initialize(buffer)
-        @buffer = buffer
-        super()
+      def initialize(raw_buffer)
+        @raw_buffer = raw_buffer
       end
 
       # Whatever reaches here is already encoded JSON, so it is appended
@@ -40,40 +52,8 @@ class TurboStreamer
       # did by pointing `write` at `safe_concat`.
       def write(value)
         string = value.to_s
-        @buffer.safe_concat(string)
+        @raw_buffer << string
         string.bytesize
-      end
-
-      # Everything below reads through to the wrapped buffer, so an inherited
-      # method never reports on the empty buffer this object carries itself.
-      def to_s
-        @buffer.to_s
-      end
-      alias_method :html_safe, :to_s
-
-      def to_str
-        @buffer.to_str
-      end
-
-      def <<(value)
-        @buffer << value
-        self
-      end
-      alias_method :concat, :<<
-      alias_method :append=, :<<
-
-      def safe_concat(value)
-        @buffer.safe_concat(value)
-        self
-      end
-      alias_method :safe_append=, :safe_concat
-
-      def length
-        @buffer.length
-      end
-
-      def empty?
-        @buffer.empty?
       end
 
     end

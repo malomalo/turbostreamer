@@ -19,10 +19,15 @@ if ENV["TSENCODER"]
   TurboStreamer.set_default_encoder(:json, ENV["TSENCODER"].to_sym)
 end
 
-# Registers the template handler and loads the ActionView extensions. The
-# on_load :action_view hook this schedules fires when ActionView::Base is first
-# used, so this is only the boot half of what a real app does.
+# Registers the template handler and schedules an on_load :action_view hook
+# that loads the ActionView extensions.
 TurboStreamer::Railtie.initializers.each(&:run)
+
+# That hook does not fire until ActionView::Base is first used, and the
+# extensions -- TurboStreamer::ActionView::Buffer and friends -- do not exist
+# until it does. Booting a real app loads ActionView::Base long before anything
+# renders; force it here so tests see the same thing whatever order they run in.
+ActionView::Base.with_empty_template_cache
 
 # Tests under test/rails_integration exercise TurboStreamer through ActionView
 # -- the template handler, the renderers, buffers and layouts -- rather than the
