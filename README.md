@@ -476,7 +476,7 @@ The document comes from [rolftimmermans](https://github.com/rolftimmermans)'
 
 <img src="https://raw.githubusercontent.com/malomalo/turbostreamer/master/performance/rolftimmermans/report-uncached.png" width="600" alt="rolftimmermans without caching: iterations/sec, GC and RSS for rabl, jbuilder and turbostreamer">
 
-Rebuilt every iteration, RABL leads by about 4x: its template evaluates to a
+Rebuilt every iteration, RABL leads by roughly 3.5x: its template evaluates to a
 Ruby Hash that Oj serializes in one C-level pass, where the builder DSLs walk
 the same structure through roughly 800 Ruby method calls. At this size there is
 nothing to stream.
