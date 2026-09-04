@@ -461,6 +461,9 @@ only one leaves the other library's caching silently disabled.
 An article with an author, 100 references and 100 comments. The article is the
 cached fragment; `generated_at`, `request_id` and `total_comments` stay live.
 
+The document comes from [rolftimmermans](https://github.com/rolftimmermans)'
+[jbuilder#54](https://github.com/rails/jbuilder/pull/54) (2012).
+
 <img src="https://raw.githubusercontent.com/malomalo/turbostreamer/master/performance/rolftimmermans/report-uncached.png" width="600" alt="rolftimmermans without caching: iterations/sec, GC and RSS for rabl, jbuilder and turbostreamer">
 
 Rebuilt every iteration, the four land within about 40% of each other. At this
@@ -481,6 +484,11 @@ re-serializes them into the response every time.
 
 101 items each holding 101 sub-items, well past the size of a realistic
 response, included for the large-payload and memory behaviour.
+
+The document comes from [dirk](https://github.com/dirk), in
+[a comment on jbuilder#289](https://github.com/rails/jbuilder/issues/289#issuecomment-146000448)
+(2015) — a thread proposing caching improvements, which is why it is shaped
+around a single large cacheable block.
 
 <img src="https://raw.githubusercontent.com/malomalo/turbostreamer/master/performance/dirk/report-uncached.png" width="600" alt="dirk without caching: iterations/sec, GC and RSS for rabl, jbuilder and turbostreamer">
 
