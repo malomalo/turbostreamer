@@ -390,9 +390,11 @@ class TurboStreamer
   def _key(key)
     # Keys repeat heavily within a document (every element of a collection emits
     # the same ones), and turning each emission into a fresh String was the
-    # library's largest allocation source. KeyFormatter memoizes internally;
-    # this covers the default, formatterless path.
-    @key_cache[key] ||= (@key_formatter ? @key_formatter.format(key) : key.to_s).freeze
+    # library's largest allocation source. KeyFormatter memoizes internally, and
+    # a formatter change (key_format!, or _scope restoring the parent's) swaps
+    # in a different instance with its own cache, so only the formatterless
+    # path needs memoizing here -- its result never depends on the formatter.
+    @key_formatter ? @key_formatter.format(key) : (@key_cache[key] ||= key.to_s.freeze)
   end
 
   def _set_value(key, value)
