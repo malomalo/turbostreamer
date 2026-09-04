@@ -7,6 +7,20 @@ class TurboStreamer::KeyFormatterTest < ActiveSupport::TestCase
     assert_equal 1, turbo_streamer.instance_eval{ @key_formatter }
   end
 
+  test 'key_format! mid-render reformats a key already emitted without it' do
+    # Keys are memoized per builder; a formatter change must not serve a key
+    # cached under the previous (or no) formatter.
+    result = jbuild do |json|
+      json.object! do
+        json.camel_style 'plain'
+        json.key_format! camelize: :lower
+        json.camel_style 'formatted'
+      end
+    end
+
+    assert_equal ['camel_style', 'camelStyle'], result.keys
+  end
+
   test 'key_format! with parameter' do
     result = jbuild do |json|
       json.object! do
