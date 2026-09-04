@@ -460,7 +460,18 @@ All four implementations produce the same document — byte-identical output
 (TurboStreamer's Oj encoder appends a trailing newline), the same fragment
 cached under the same key, and the same live values rendered outside it. RABL
 runs with `cache_sources` enabled so no implementation touches the filesystem
-inside the measured loop. The GC panels are normalized per iteration, not per
+inside the measured loop.
+
+Reading the numbers: these are microbenchmarks of the render layer. Every value
+is precomputed before the measured loop, so builder overhead is nearly the
+whole cost of an iteration. In an application, attribute access, type casting
+and the rest of the request add the same absolute cost to every library, which
+narrows every relative gap — most of all uncached, where RABL's lead comes from
+handing a finished Ruby Hash to Oj's single C-level pass rather than from a
+faster builder; among the builder DSLs, TurboStreamer's Oj encoder is the
+fastest uncached in both suites. With a cached fragment it is the fastest
+outright and by a wide margin, because it is the only one that caches
+serialized bytes rather than a structure to re-serialize. The GC panels are normalized per iteration, not per
 second — implementations complete vastly different amounts of work in the same
 five seconds, and a per-second axis would make the fastest one look the most
 wasteful. The iterations axis is logarithmic for the same reason. RSS is a
