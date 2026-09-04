@@ -1,1 +1,37 @@
-This performance test came from https://github.com/rails/jbuilder/issues/289#issuecomment-146000448
+This performance test came from a comment by dirk on a jbuilder issue proposing
+caching improvements:
+
+  https://github.com/rails/jbuilder/issues/289#issuecomment-146000448
+  https://gist.github.com/dirk/4048df31641f5dab1c67 (the script itself)
+
+How this differs from the original
+----------------------------------
+
+The gist was written to A/B test jbuilder's cache-hit rendering cost (master vs
+the proposed branch), jbuilder-only, with benchmark-ips. For that purpose it
+cached the entire document body: one wrapper key around one cached array, with
+caching always on and nothing rendered live.
+
+The 2017 port kept that shape and extended it into a cross-library comparison
+(rabl, turbostreamer with oj and wankel encoders, the analyzer harness). Used as
+a comparison, whole-document caching degenerates: the fastest implementation is
+the one that returns the cached blob with the least work, and a real app would
+cache a fully-cacheable response above the view layer anyway -- conditional GET
+(fresh_when / ETags), a CDN or reverse proxy, a low-level Rails.cache around the
+payload, or action caching (actionpack-action_caching). Fragment caching is for
+partially cacheable responses, so that is what this suite now models.
+
+Current differences from the original script:
+
+- Live values (generated_at, request_id, item_count) are rendered around the
+  cached fragment, so every implementation has to assemble the response on
+  every iteration; nothing can serve the whole document from cache.
+- Caching is toggled by PERFORM_CACHING (see lib.rb and the Rakefile, which
+  runs the suite both ways). It is set on ActionController::Base and on the
+  render context together: rabl consults the former, turbostreamer and jbuilder
+  the latter, and setting only one silently disables one library's caching.
+- All implementations emit a byte-identical document (dates are a single
+  pre-formatted string; each encoder would otherwise apply its own Time
+  format), cache the same fragment under the same key, and do no file I/O in
+  the measured loop (rabl runs with cache_sources enabled, as deployed apps
+  effectively have via template caching).
