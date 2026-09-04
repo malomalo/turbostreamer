@@ -53,14 +53,16 @@ task :performance do
   # the same fragment while the keys around it stay live -- a response that is
   # cacheable end to end would be cached at the controller rather than rendered,
   # so a cached fragment with live data around it is the case worth measuring.
-  %w(rolftimmermans dirk).each do |suite|
+  suites = { 'rolftimmermans' => '22KB document', 'dirk' => '5MB document' }
+  suites.each do |suite, description|
     base = File.expand_path("../performance/#{suite}", __FILE__)
     paths = files.map { |i| File.join(base, i) }
 
-    { 'report-cached.png' => 'true', 'report-uncached.png' => 'false' }.each do |output, caching|
-      ENV['PERFORM_CACHING'] = caching
+    { 'report-cached.png' => true, 'report-uncached.png' => false }.each do |output, caching|
+      ENV['PERFORM_CACHING'] = caching.to_s
       analyzer = Analyzer.new(*paths, lib: File.join(base, 'lib.rb'))
-      analyzer.plot(File.join(base, output))
+      analyzer.plot(File.join(base, output),
+        title: "#{suite} - #{description}, fragment caching #{caching ? 'on' : 'off'}")
     end
   end
 ensure
