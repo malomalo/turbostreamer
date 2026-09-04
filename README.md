@@ -460,7 +460,11 @@ All four implementations produce the same document — byte-identical output
 (TurboStreamer's Oj encoder appends a trailing newline), the same fragment
 cached under the same key, and the same live values rendered outside it. RABL
 runs with `cache_sources` enabled so no implementation touches the filesystem
-inside the measured loop.
+inside the measured loop. The GC panels are normalized per iteration, not per
+second — implementations complete vastly different amounts of work in the same
+five seconds, and a per-second axis would make the fastest one look the most
+wasteful. The iterations axis is logarithmic for the same reason. RSS is a
+process-level number and should be read against the iterations panel.
 
 ### rolftimmermans — 22KB document
 
@@ -510,6 +514,10 @@ cached bytes while RABL and jbuilder deserialize and re-serialize 5MB of cached
 objects. At this size a cache hit is actually *slower* for RABL than rebuilding
 from scratch — the effect reported against jbuilder in
 [jbuilder#259](https://github.com/rails/jbuilder/issues/259), reproduced here.
+The RSS panel makes the deserialization cost visible: jbuilder climbs to
+~400MB while completing the *fewest* iterations, Marshal-loading the 5MB
+cached hash on every hit, while TurboStreamer holds around 100MB while
+producing two orders of magnitude more output.
 
 Special Thanks & Contributors
 -----------------------------
