@@ -382,11 +382,6 @@ class TurboStreamer
     end
   end
 
-  def _write(key, value)
-    @encoder.key(_key(key))
-    @encoder.value(value)
-  end
-
   def _key(key)
     # Keys repeat heavily within a document (every element of a collection emits
     # the same ones), and turning each emission into a fresh String was the
