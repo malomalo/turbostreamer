@@ -1,25 +1,8 @@
 object false
 
-cache :rabl_cached
+node(:generated_at) { $date }
+node(:request_id)   { $next_request_id.call }
 
-node(:cached) do
-  (0..100).map do |i|
-    {
-      a: i,
-      b: i,
-      c: i,
-      d: i,
-      e: i,
+node(:cached) { partial("cached", object: false) }
 
-      subitems: (0..100).map do |j|
-        {
-          f: i.to_s * j,
-          g: i.to_s * j,
-          h: i.to_s * j,
-          i: i.to_s * j,
-          j: i.to_s * j,
-        }
-      end
-    }
-  end
-end
+node(:item_count) { 101 }

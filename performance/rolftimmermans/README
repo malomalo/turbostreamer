@@ -1,2 +1,30 @@
-This performance test came from:
-https://github.com/rails/jbuilder/pull/54
+This performance test came from a 2012 jbuilder pull request by rolftimmermans,
+"Substantial performance improvements", where it was used to demonstrate
+speedups to jbuilder's internals:
+
+  https://github.com/rails/jbuilder/pull/54
+
+How this differs from the original
+----------------------------------
+
+The original was a pure rendering benchmark with no caching: an article with an
+author, 100 references and 100 comments, rebuilt on every iteration. The 2017
+port extended it into a cross-library comparison (rabl, turbostreamer with oj
+and wankel encoders, the analyzer harness).
+
+Current differences from the original script:
+
+- The article is now a cached fragment with live values (generated_at,
+  request_id, total_comments) rendered around it, and the suite runs both with
+  caching off (the original's pure-builder comparison) and on (fragment reuse).
+  A response that is cacheable end to end would be cached above the view layer
+  instead -- conditional GET, a CDN, or a low-level cache around the payload --
+  so the cached mode models the realistic case: a cached fragment with live
+  data around it.
+- Caching is toggled by PERFORM_CACHING (see lib.rb and the Rakefile); it must
+  be set on ActionController::Base and the render context together or one
+  library's caching is silently disabled.
+- All implementations render through the view-layer template classes and emit a
+  byte-identical document (dates are a single pre-formatted string), cache the
+  same fragment under the same key, and do no file I/O in the measured loop
+  (rabl runs with cache_sources enabled).

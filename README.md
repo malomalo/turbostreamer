@@ -425,19 +425,110 @@ All backends must have the following functions:
 - `inject(string)` Inject a (usually cached) string into the output; instering any delimiters as needed.
 - `capture(&block)` Capture the output of the block (w/o any delimiters)
 
-Benchmark
----------
-`gnuplot` is required to run benchmark, to install:
-- `brew install gnuplot` (MacOS)
+Performance Benchmarks
+----------------------
 
-`yajl` is required to install a development dependency [`wankel`](https://github.com/malomalo/wankel), to install:
-- `brew install yajl` (MacOS)
+[Gnuplot](http://www.gnuplot.info) and [YAJL](http://lloyd.github.io/yajl/) are
+required to run the benchmarks; YAJL is needed by
+[`wankel`](https://github.com/malomalo/wankel), one of the encoders under test.
+To install:
 
-To run benchmark: `bundle exec rake performance`
+- `brew install gnuplot yajl` (MacOS)
 
-This will produce 2 graph images on in folders
-- `performance/dirk`
-- `performance/rolftimmermans`
+The benchmark gems live in an optional Bundler group, so install them first:
+
+    bundle config set with performance
+    bundle install
+
+To run the benchmarks: `bundle exec rake performance` (from the repository
+root). It produces four reports — two document shapes, each run with fragment
+caching off and on. The ones below were generated on macOS 26.5.1, Apple M5 Pro.
+
+Both suites render live values before and after a cached fragment. A response
+that is cacheable end to end would be cached at the controller rather than
+rendered at all, so the case worth measuring is a cached fragment with live data
+around it. With caching off, nothing is reused and the comparison is of the
+builders themselves.
+
+Caching is toggled with the `PERFORM_CACHING` environment variable. It has to be
+set on `ActionController::Base` and on the render context together — RABL
+consults the former through `Rabl::Helpers#template_cache_configured?`, while
+TurboStreamer and jbuilder ask the controller they are rendered with. Setting
+only one leaves the other library's caching silently disabled.
+
+All four implementations produce the same document — byte-identical output
+(TurboStreamer's Oj encoder appends a trailing newline), the same fragment
+cached under the same key, and the same live values rendered outside it. RABL
+runs with `cache_sources` enabled so no implementation touches the filesystem
+inside the measured loop.
+
+Reading the numbers: these are microbenchmarks of the render layer. Every value
+is precomputed before the measured loop, so builder overhead is nearly the
+whole cost of an iteration. In an application, attribute access, type casting
+and the rest of the request add the same absolute cost to every library, which
+narrows every relative gap — most of all uncached, where RABL's lead comes from
+handing a finished Ruby Hash to Oj's single C-level pass rather than from a
+faster builder; among the builder DSLs, TurboStreamer's Oj encoder is the
+fastest uncached in both suites. With a cached fragment it is the fastest
+outright and by a wide margin, because it is the only one that caches
+serialized bytes rather than a structure to re-serialize. The GC panels are normalized per iteration, not per
+second — implementations complete vastly different amounts of work in the same
+five seconds, and a per-second axis would make the fastest one look the most
+wasteful. The iterations axis is logarithmic for the same reason. RSS is a
+process-level number and should be read against the iterations panel.
+
+### rolftimmermans — 22KB document
+
+An article with an author, 100 references and 100 comments. The article is the
+cached fragment; `generated_at`, `request_id` and `total_comments` stay live.
+
+The document comes from [rolftimmermans](https://github.com/rolftimmermans)'
+[jbuilder#54](https://github.com/rails/jbuilder/pull/54) (2012).
+
+<img src="https://raw.githubusercontent.com/malomalo/turbostreamer/master/performance/rolftimmermans/report-uncached.png" width="600" alt="rolftimmermans without caching: iterations/sec, GC and RSS for rabl, jbuilder and turbostreamer">
+
+Rebuilt every iteration, RABL leads by roughly 3.5x: its template evaluates to a
+Ruby Hash that Oj serializes in one C-level pass, where the builder DSLs walk
+the same structure through roughly 800 Ruby method calls. At this size there is
+nothing to stream.
+
+<img src="https://raw.githubusercontent.com/malomalo/turbostreamer/master/performance/rolftimmermans/report-cached.png" width="600" alt="rolftimmermans with caching: iterations/sec, GC and RSS for rabl, jbuilder and turbostreamer">
+
+With the fragment cached the ranking inverts and the gap is roughly
+twenty-fold, and it comes from *what* each library caches. TurboStreamer caches
+the fragment's serialized JSON and splices those bytes into the output stream,
+so a hit costs a copy and no serialization. RABL and jbuilder cache the data
+structure — RABL's key is `rabl/article_fragment//hash` — so a hit deserializes
+the cached objects and re-serializes them into the response every time.
+
+### dirk — 5MB document
+
+101 items each holding 101 sub-items, well past the size of a realistic
+response, included for the large-payload and memory behaviour.
+
+The document comes from [dirk](https://github.com/dirk), in
+[a comment on jbuilder#289](https://github.com/rails/jbuilder/issues/289#issuecomment-146000448)
+(2015) — a thread proposing caching improvements, which is why it is shaped
+around a single large cacheable block.
+
+<img src="https://raw.githubusercontent.com/malomalo/turbostreamer/master/performance/dirk/report-uncached.png" width="600" alt="dirk without caching: iterations/sec, GC and RSS for rabl, jbuilder and turbostreamer">
+
+Rebuilt every iteration, RABL leads by about 2x: one Oj pass over a finished
+object graph beats roughly 51,000 Ruby-level DSL calls. Note the RSS panel,
+where building the document costs every implementation several hundred MB.
+
+<img src="https://raw.githubusercontent.com/malomalo/turbostreamer/master/performance/dirk/report-cached.png" width="600" alt="dirk with caching: iterations/sec, GC and RSS for rabl, jbuilder and turbostreamer">
+
+With the fragment cached the same split appears, and the larger the cached
+fragment the more the re-serialization costs: TurboStreamer re-emits 5MB of
+cached bytes while RABL and jbuilder deserialize and re-serialize 5MB of cached
+objects. At this size a cache hit is actually *slower* for RABL than rebuilding
+from scratch — the effect reported against jbuilder in
+[jbuilder#259](https://github.com/rails/jbuilder/issues/259), reproduced here.
+The RSS panel makes the deserialization cost visible: jbuilder climbs to
+~400MB while completing the *fewest* iterations, Marshal-loading the 5MB
+cached hash on every hit, while TurboStreamer holds around 100MB while
+producing two orders of magnitude more output.
 
 Special Thanks & Contributors
 -----------------------------
@@ -448,3 +539,10 @@ Thanks to everyone who's been a part of Jbuilder!
 
 * David Heinemeier Hansson - http://david.heinemeierhansson.com/ - for writing Jbuidler!!
 * Pavel Pravosud - http://pavel.pravosud.com/ - for maintaing and pushing Jbuilder forward
+
+And to everyone who has contributed to TurboStreamer since the fork:
+
+* [PikachuEXE](https://github.com/PikachuEXE) - for writing the Oj encoder, implementing
+  `merge!`, fixing the caching output bugs, and adding the RABL benchmark
+* [Stephen Demjanenko](https://github.com/sdemjanenko) - for streaming without requiring a
+  layout, and for tuning the Oj `StreamWriter` buffer size

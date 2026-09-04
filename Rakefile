@@ -40,30 +40,33 @@ end
 
 task :performance do
   require 'analyzer'
-  
-  base = File.expand_path("../performance/rolftimmermans", __FILE__)
-  output_file = File.join(base, 'report.png')
+
   files = [
     'rabl/oj.rb',
     'jbuilder/oj.rb',
     'turbostreamer/oj.rb',
     'turbostreamer/wankel.rb',
-  ].map{ |i| File.join(base, i) }
-  analyzer = Analyzer.new(*files, lib: File.join(base, 'lib.rb'))
-  analyzer.plot(output_file)
+  ]
 
+  # Each suite runs twice. With caching off every implementation rebuilds the
+  # document, which compares the builders themselves. With it on, each caches
+  # the same fragment while the keys around it stay live -- a response that is
+  # cacheable end to end would be cached at the controller rather than rendered,
+  # so a cached fragment with live data around it is the case worth measuring.
+  suites = { 'rolftimmermans' => '22KB document', 'dirk' => '5MB document' }
+  suites.each do |suite, description|
+    base = File.expand_path("../performance/#{suite}", __FILE__)
+    paths = files.map { |i| File.join(base, i) }
 
-
-  base = File.expand_path("../performance/dirk", __FILE__)
-  output_file = File.join(base, 'report.png')
-  files = [
-    'rabl/oj.rb',
-    'jbuilder/oj.rb',
-    'turbostreamer/oj.rb',
-    'turbostreamer/wankel.rb',
-  ].map{ |i| File.join(base, i) }
-  analyzer = Analyzer.new(*files, lib: File.join(base, 'lib.rb'))
-  analyzer.plot(output_file)
+    { 'report-cached.png' => true, 'report-uncached.png' => false }.each do |output, caching|
+      ENV['PERFORM_CACHING'] = caching.to_s
+      analyzer = Analyzer.new(*paths, lib: File.join(base, 'lib.rb'))
+      analyzer.plot(File.join(base, output),
+        title: "#{suite} - #{description}, fragment caching #{caching ? 'on' : 'off'}")
+    end
+  end
+ensure
+  ENV.delete('PERFORM_CACHING')
 end
 
 task test: "test:all"

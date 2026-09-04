@@ -5,22 +5,23 @@ module Rails
   def self.cache
     @cache ||= ActiveSupport::Cache::MemoryStore.new
   end
+
+  # rabl's Engine#cache_key reads this before it will build a cache key.
+  def self.version
+    ActiveSupport::VERSION::STRING
+  end
 end
 
+# Cache template sources the way a deployed app would; without this rabl
+# re-reads and re-compiles both .rabl files from disk on every render.
+Rabl.configuration.cache_sources = true
+
+VIEW_PATH = File.expand_path("./performance/dirk/rabl/views/")
+
 # Fill the cache
-Rabl.render(
-  nil,
-  "template",
-  view_path: File.expand_path("./performance/dirk/rabl/views/"),
-  format: :json,
-)
+Rabl::Renderer.new("template", nil, format: :json, view_path: VIEW_PATH).render
 
 # Everthing before this is run once initially, after is the test
 __SETUP__
 
-Rabl.render(
-  nil,
-  "template",
-  view_path: File.expand_path("./performance/dirk/rabl/views/"),
-  format: :json,
-)
+Rabl::Renderer.new("template", nil, format: :json, view_path: VIEW_PATH).render
