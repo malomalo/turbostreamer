@@ -12,7 +12,7 @@ end
 
 def render_jbuilder
   JbuilderTemplate.encode FakeContext.new do |json|
-    json.generated_at $now
+    json.generated_at $date
     json.request_id $next_request_id.call
 
     json.cache! 'article_fragment' do
@@ -20,7 +20,7 @@ def render_jbuilder
         json.author($author, :name, :birthyear, :bio)
         json.title "Profiling Jbuilder"
         json.body "How to profile Jbuilder"
-        json.date $now
+        json.date $date
         json.references $arr do |ref|
           json.name "Introduction to profiling"
           json.url "http://example.com/"
@@ -29,7 +29,7 @@ def render_jbuilder
           json.author($author, :name, :birthyear, :bio)
           json.email "rolf@example.com"
           json.body "Great article"
-          json.date $now
+          json.date $date
         end
       end
     end

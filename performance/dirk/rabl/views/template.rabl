@@ -1,6 +1,6 @@
 object false
 
-node(:generated_at) { $now }
+node(:generated_at) { $date }
 node(:request_id)   { $next_request_id.call }
 
 node(:cached) { partial("cached", object: false) }

@@ -456,6 +456,12 @@ consults the former through `Rabl::Helpers#template_cache_configured?`, while
 TurboStreamer and jbuilder ask the controller they are rendered with. Setting
 only one leaves the other library's caching silently disabled.
 
+All four implementations produce the same document — byte-identical output
+(TurboStreamer's Oj encoder appends a trailing newline), the same fragment
+cached under the same key, and the same live values rendered outside it. RABL
+runs with `cache_sources` enabled so no implementation touches the filesystem
+inside the measured loop.
+
 ### rolftimmermans — 22KB document
 
 An article with an author, 100 references and 100 comments. The article is the
@@ -466,19 +472,19 @@ The document comes from [rolftimmermans](https://github.com/rolftimmermans)'
 
 <img src="https://raw.githubusercontent.com/malomalo/turbostreamer/master/performance/rolftimmermans/report-uncached.png" width="600" alt="rolftimmermans without caching: iterations/sec, GC and RSS for rabl, jbuilder and turbostreamer">
 
-Rebuilt every iteration, the four land within about 40% of each other. At this
-size there is little to stream: RABL's template evaluates to a Ruby Hash that Oj
-serializes in one pass, and that is competitive with walking the structure
-through a builder DSL.
+Rebuilt every iteration, RABL leads by about 4x: its template evaluates to a
+Ruby Hash that Oj serializes in one C-level pass, where the builder DSLs walk
+the same structure through roughly 800 Ruby method calls. At this size there is
+nothing to stream.
 
 <img src="https://raw.githubusercontent.com/malomalo/turbostreamer/master/performance/rolftimmermans/report-cached.png" width="600" alt="rolftimmermans with caching: iterations/sec, GC and RSS for rabl, jbuilder and turbostreamer">
 
-With the fragment cached the gap is roughly fifty-fold, and it comes from *what*
-each library caches. TurboStreamer caches the fragment's serialized JSON and
-splices those bytes into the output stream, so a hit costs a copy and no
-serialization. RABL and jbuilder cache the data structure — RABL's key is
-`rabl/article_fragment//hash` — so a hit skips building the objects but still
-re-serializes them into the response every time.
+With the fragment cached the ranking inverts and the gap is roughly
+twenty-fold, and it comes from *what* each library caches. TurboStreamer caches
+the fragment's serialized JSON and splices those bytes into the output stream,
+so a hit costs a copy and no serialization. RABL and jbuilder cache the data
+structure — RABL's key is `rabl/article_fragment//hash` — so a hit deserializes
+the cached objects and re-serializes them into the response every time.
 
 ### dirk — 5MB document
 
@@ -492,15 +498,18 @@ around a single large cacheable block.
 
 <img src="https://raw.githubusercontent.com/malomalo/turbostreamer/master/performance/dirk/report-uncached.png" width="600" alt="dirk without caching: iterations/sec, GC and RSS for rabl, jbuilder and turbostreamer">
 
-Rebuilt every iteration, RABL leads: one Oj pass over a finished object graph
-beats roughly 51,000 Ruby-level DSL calls. Note the RSS panel, where building
-the document costs every implementation several hundred MB.
+Rebuilt every iteration, RABL leads by about 2x: one Oj pass over a finished
+object graph beats roughly 51,000 Ruby-level DSL calls. Note the RSS panel,
+where building the document costs every implementation several hundred MB.
 
 <img src="https://raw.githubusercontent.com/malomalo/turbostreamer/master/performance/dirk/report-cached.png" width="600" alt="dirk with caching: iterations/sec, GC and RSS for rabl, jbuilder and turbostreamer">
 
 With the fragment cached the same split appears, and the larger the cached
 fragment the more the re-serialization costs: TurboStreamer re-emits 5MB of
-cached bytes while RABL and jbuilder re-serialize 5MB of cached objects.
+cached bytes while RABL and jbuilder deserialize and re-serialize 5MB of cached
+objects. At this size a cache hit is actually *slower* for RABL than rebuilding
+from scratch — the effect reported against jbuilder in
+[jbuilder#259](https://github.com/rails/jbuilder/issues/259), reproduced here.
 
 Special Thanks & Contributors
 -----------------------------

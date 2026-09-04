@@ -35,7 +35,10 @@ end
 struct = Struct.new(:name, :birthyear, :bio, :url)
 $author = struct.new("Rolf", 1920, "Software developer", "http://example.com/")
 $author.instance_eval { undef each } # Jbuilder doesn't like #each on non-arrays.
-$now = Time.now
+# A fixed, pre-formatted timestamp. Each library would otherwise format
+# Time objects with its own encoder policy, producing different bytes and
+# doing different amounts of work for the "same" document.
+$date = '2015-10-06T21:04:42.000Z'
 $arr = 100.times.to_a
 
 # Values outside the cached fragment, so no implementation can serve the whole

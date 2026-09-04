@@ -6,7 +6,7 @@ node(:author) do
 end
 node(:title) { "Profiling Jbuilder" }
 node(:body)  { "How to profile Jbuilder" }
-node(:date)  { $now }
+node(:date)  { $date }
 node(:references) do
   $arr.map { |ref| { name: "Introduction to profiling", url: "http://example.com/" } }
 end
@@ -16,7 +16,7 @@ node(:comments) do
       author: { name: $author.name, birthyear: $author.birthyear, bio: $author.bio },
       email: "rolf@example.com",
       body: "Great article",
-      date: $now,
+      date: $date,
     }
   end
 end

@@ -12,6 +12,10 @@ module Rails
   end
 end
 
+# Cache template sources the way a deployed app would; without this rabl
+# re-reads and re-compiles both .rabl files from disk on every render.
+Rabl.configuration.cache_sources = true
+
 VIEW_PATH = File.expand_path("./performance/dirk/rabl/views/")
 
 # Fill the cache

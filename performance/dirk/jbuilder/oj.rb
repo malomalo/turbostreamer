@@ -12,7 +12,7 @@ end
 
 def render_jbuilder
   JbuilderTemplate.encode FakeContext.new do |json|
-    json.generated_at $now
+    json.generated_at $date
     json.request_id $next_request_id.call
 
     json.cache! 'jbcached' do

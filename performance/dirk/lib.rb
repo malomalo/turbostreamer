@@ -38,6 +38,9 @@ end
 # document from cache. A response that is entirely cacheable would be cached at
 # the controller instead of rendered, so the interesting case is a cached
 # fragment with live data around it.
-$now = Time.now
+# A fixed, pre-formatted timestamp. Each library would otherwise format
+# Time objects with its own encoder policy, producing different bytes and
+# doing different amounts of work for the "same" document.
+$date = '2015-10-06T21:04:42.000Z'
 $request_id = 0
 $next_request_id = -> { $request_id += 1 }
