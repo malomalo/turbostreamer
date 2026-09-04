@@ -1,9 +1,9 @@
 # TurboStreamer
 
-[![GitHub Build Status](https://img.shields.io/github/workflow/status/malomalo/turbostreamer/CI?style=flat-square)](https://github.com/malomalo/turbostreamer/actions?query=workflow%3ACI)
+[![GitHub Build Status](https://img.shields.io/github/actions/workflow/status/malomalo/turbostreamer/ci.yml?branch=master&style=flat-square)](https://github.com/malomalo/turbostreamer/actions?query=workflow%3ACI)
 
-[![Gem Version](http://img.shields.io/gem/v/turbostreamer.svg?style=flat-square)](http://badge.fury.io/rb/turbostreamer)
-[![License](https://img.shields.io/github/license/malomalo/turbostreamer.svg?style=flat-square)](http://badge.fury.io/rb/turbostreamer)
+[![Gem Version](https://img.shields.io/gem/v/turbostreamer.svg?style=flat-square)](https://rubygems.org/gems/turbostreamer)
+[![License](https://img.shields.io/github/license/malomalo/turbostreamer.svg?style=flat-square)](https://github.com/malomalo/turbostreamer/blob/master/LICENSE)
 
 TurboStreamer gives you a simple DSL like jBuilder for generating JSON that
 streams directly to a String or IO object.
