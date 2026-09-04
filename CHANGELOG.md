@@ -1,5 +1,17 @@
 # Changelog
 
+Unreleased
+----------
+
+* Formatted keys are memoized per builder instance. The default,
+  formatterless path allocated a fresh String for every key emission — the
+  library's largest allocation source (~20% of total allocations rendering a
+  large collection).
+* Fewer Ruby frames per emitted value on the hot path (`set!` and `extract!`
+  inline the one-line `key!`/`value!` hops; encoder container checks
+  simplified). With the memoized keys: roughly +14–20% throughput on the
+  benchmark suites under the interpreter, +8–13% under YJIT.
+
 2.0.0
 -----
 

@@ -46,6 +46,7 @@ class TurboStreamer
 
     @encoder = @encoder.new(@output_buffer, @encoder_options)
     @key_formatter = options.fetch(:key_formatter){ @@key_formatter ? @@key_formatter.clone : nil }
+    @key_cache = {}
 
     yield self if ::Kernel.block_given?
   end
@@ -142,7 +143,7 @@ class TurboStreamer
   end
 
   def set!(key, value = BLANK, *args, &block)
-    key!(key)
+    @encoder.key(_key(key))
 
     if block
       if !_blank?(value)
@@ -157,7 +158,7 @@ class TurboStreamer
     elsif args.empty?
       # json.age 32
       # { "age": 32 }
-      value!(value)
+      @encoder.value(value)
     elsif _eachable_arguments?(value, *args)
       # json.comments @post.comments, :content, :created_at
       # { "comments": [ { "content": "hello", "created_at": "..." }, { "content": "world", "created_at": "..." } ] }
@@ -387,12 +388,17 @@ class TurboStreamer
   end
 
   def _key(key)
-    @key_formatter ? @key_formatter.format(key) : key.to_s
+    # Keys repeat heavily within a document (every element of a collection emits
+    # the same ones), and turning each emission into a fresh String was the
+    # library's largest allocation source. KeyFormatter memoizes internally;
+    # this covers the default, formatterless path.
+    @key_cache[key] ||= (@key_formatter ? @key_formatter.format(key) : key.to_s).freeze
   end
 
   def _set_value(key, value)
     return if _blank?(value)
-    _write key, value
+    @encoder.key(_key(key))
+    @encoder.value(value)
   end
 
   def _capture(to=nil, &block)
