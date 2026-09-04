@@ -21,7 +21,8 @@ class TurboStreamer
     end
 
     def key(k)
-      if @write_comma_on_next_push && (@stack.last == :array || @stack.last == :map)
+      # @stack only ever holds :map or :array, so this is just depth > 0.
+      if @write_comma_on_next_push && !@stack.empty?
         @stream_writer.flush
         @output.write(",".freeze)
         @write_comma_on_next_push = false
@@ -30,7 +31,7 @@ class TurboStreamer
     end
 
     def value(v)
-      if @stack.last == :array || @stack.last == :map
+      unless @stack.empty?
         @indexes[-1] += 1
 
         if @write_comma_on_next_push

@@ -17,9 +17,8 @@ class TurboStreamer
     end
 
     def value(v)
-      if @stack.last == :array || @stack.last == :map
-        @indexes[-1] += 1
-      end
+      # @stack only ever holds :map or :array, so this is just depth > 0.
+      @indexes[-1] += 1 unless @stack.empty?
       super
     end
 
