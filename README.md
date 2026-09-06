@@ -170,7 +170,7 @@ You can use partials as well. The following will render the file
 the partial.
 
 ```ruby
-json.partial! 'comments/comments', comments: @message.comments
+json.partial! 'comments/comments', locals: { comments: @message.comments }
 ```
 
 It's also possible to render collections of partials:
@@ -184,12 +184,20 @@ json.partial! 'posts/post', collection: @posts, as: :post
 
 # or
 
-json.partial! partial: 'posts/post', collection: @posts, as: :post
-
-# or
-
 json.comments @post.comments, partial: 'comment/comment', as: :comment
 ```
+
+The signature is `partial!(name, locals: nil, **render_options)`: the partial
+name comes first, template locals go in `locals:`, and every other keyword is
+passed to Action View as a render option.
+
+```ruby
+json.partial! 'posts/post', locals: { post: @post }  # a local named post
+json.partial! 'posts/post', locale: :de              # picks _post.de.json.streamer
+json.partial! 'posts/post', variants: :grid          # picks _post.json+grid.streamer
+json.partial! 'posts/post', collection: @posts, as: :post
+```
+The one exception is `handlers:`, which is fixed to `[:streamer]`.
 
 ### Layouts
 
