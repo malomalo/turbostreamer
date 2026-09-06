@@ -43,4 +43,95 @@ class TurboStreamer::InjectTest < ActiveSupport::TestCase
     assert_equal 'value2', result['author']['attr2']
   end
 
+  # The injected bytes go straight to the output, behind the encoder's own
+  # bookkeeping, so it does not count them and will not delimit around them.
+  # Every arrangement of an injected element next to a rendered one has to come
+  # back out as separate elements.
+
+  test 'inject! as the first element of an array, followed by a container' do
+    result = jbuild do |json|
+      json.array! do
+        json.inject! '1'
+        json.child! { json.object! { json.a 1 } }
+      end
+    end
+
+    assert_equal [1, {'a' => 1}], result
+  end
+
+  test 'inject! as the first element of an array, followed by a scalar' do
+    result = jbuild do |json|
+      json.array! do
+        json.inject! '1'
+        json.child! 2
+      end
+    end
+
+    assert_equal [1, 2], result
+  end
+
+  test 'inject! between two rendered objects in an array' do
+    result = jbuild do |json|
+      json.array! do
+        json.child! { json.object! { json.a 0 } }
+        json.inject! '1'
+        json.child! { json.object! { json.b 2 } }
+      end
+    end
+
+    assert_equal [{'a' => 0}, 1, {'b' => 2}], result
+  end
+
+  test 'consecutive inject! followed by a container in an array' do
+    result = jbuild do |json|
+      json.array! do
+        json.inject! '1'
+        json.inject! '2'
+        json.child! { json.object! { json.a 1 } }
+      end
+    end
+
+    assert_equal [1, 2, {'a' => 1}], result
+  end
+
+  test 'inject! followed by a nested array' do
+    result = jbuild do |json|
+      json.array! do
+        json.inject! '1'
+        json.child! { json.array! { json.child! 2 } }
+      end
+    end
+
+    assert_equal [1, [2]], result
+  end
+
+  test 'inject! in a map followed by a key with a container value' do
+    result = jbuild do |json|
+      json.object! do
+        json.inject! '"x":1'
+        json.y { json.object! { json.z 2 } }
+        json.w 3
+      end
+    end
+
+    assert_equal({'x' => 1, 'y' => {'z' => 2}, 'w' => 3}, result)
+  end
+
+  test 'inject! nested inside an injected-into container' do
+    result = jbuild do |json|
+      json.object! do
+        json.inject! '"x":1'
+        json.y do
+          json.object! do
+            json.inject! '"z":2'
+            json.w 3
+          end
+        end
+        json.v 4
+      end
+    end
+
+    assert_equal({'x' => 1, 'y' => {'z' => 2, 'w' => 3}, 'v' => 4}, result)
+  end
+
 end

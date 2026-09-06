@@ -265,6 +265,40 @@ class RailsIntegration::TemplateTest < ActionView::TestCase
     assert_equal(%w[a b c], JSON.load(json))
   end
 
+  # A cached fragment is spliced in as raw bytes, so it bypasses the encoder's
+  # element bookkeeping. Mixed with a normally-rendered sibling -- rather than
+  # the all-cached array below -- that used to emit `[{...}{...}]`.
+  test 'fragment caching mixed with rendered siblings in an array' do
+    undef_context_methods :cache_fragment_name
+
+    source = <<-STREAMER
+      json.array! do
+        json.cache!('k') { json.child! { json.object! { json.set!(:a, 1) } } }
+        json.child! { json.object! { json.set!(:b, 2) } }
+      end
+    STREAMER
+
+    # cache miss
+    assert_equal([{'a' => 1}, {'b' => 2}], JSON.load(render_streamer(source)))
+    # cache hit
+    assert_equal([{'a' => 1}, {'b' => 2}], JSON.load(render_streamer(source)))
+  end
+
+  test 'a rendered sibling before a cached fragment in an array' do
+    undef_context_methods :cache_fragment_name
+
+    source = <<-STREAMER
+      json.array! do
+        json.child! { json.object! { json.set!(:a, 0) } }
+        json.cache!('k') { json.child! { json.object! { json.set!(:b, 1) } } }
+        json.child! { json.object! { json.set!(:c, 2) } }
+      end
+    STREAMER
+
+    assert_equal([{'a' => 0}, {'b' => 1}, {'c' => 2}], JSON.load(render_streamer(source)))
+    assert_equal([{'a' => 0}, {'b' => 1}, {'c' => 2}], JSON.load(render_streamer(source)))
+  end
+
   test 'fragment caching works in an array' do
     undef_context_methods :cache_fragment_name
 

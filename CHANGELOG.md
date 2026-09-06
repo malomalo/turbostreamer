@@ -16,6 +16,12 @@ Unreleased
   emitted a `"null!"` key whose value was an inspected `Object`.
 * Documented that `ActionController::API` silently skips layouts unless
   `ActionView::Layouts` is included.
+* Fixed injected JSON -- and so `cache!`, which splices cached bytes -- losing
+  or misplacing the separator next to a normally-rendered sibling. A cached
+  fragment beside a rendered object in an array emitted `[{...}{...}]`, which is
+  not valid JSON; on the Wankel encoder `[1,2]` could come back as `[12]`, which
+  is valid but wrong. Both encoders now track what they wrote separately from
+  what is present, so injected bytes are delimited correctly in either position.
 
 2.0.0
 -----
