@@ -59,6 +59,20 @@ class TurboStreamer
     @encoder.value(value)
   end
 
+  # Emits a JSON null.
+  #
+  # Example:
+  #
+  #   json.author do
+  #     json.null!
+  #   end
+  #
+  #   { "author": null }
+  def null!
+    @encoder.value(nil)
+  end
+  alias_method :nil!, :null!
+
   def object!(&block)
     @encoder.map_open
     _scope { block.call } if block

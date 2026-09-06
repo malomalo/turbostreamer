@@ -12,6 +12,37 @@ class TurboStreamerTest < ActiveSupport::TestCase
     end
   end
 
+  test 'null! and nil! emit a top-level null' do
+    [:null!, :nil!].each do |method|
+      assert_nil jbuild { |json| json.send(method) }
+    end
+  end
+
+  test 'null! and nil! as the value of a key' do
+    [:null!, :nil!].each do |method|
+      result = jbuild do |json|
+        json.object! do
+          json.author { json.send(method) }
+        end
+      end
+
+      assert_equal({'author' => nil}, result)
+    end
+  end
+
+  test 'null! and nil! as an array element' do
+    [:null!, :nil!].each do |method|
+      result = jbuild do |json|
+        json.array! do
+          json.child! { json.send(method) }
+          json.child! 1
+        end
+      end
+
+      assert_equal [nil, 1], result
+    end
+  end
+
   test 'empty top-level object' do
     result = jbuild do |json|
       json.object!
