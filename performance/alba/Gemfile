@@ -1,0 +1,40 @@
+# frozen_string_literal: true
+#
+# Vendored from alba's benchmark suite. Two deliberate changes from upstream:
+#
+#   * turbostreamer points at this working tree, so the suite measures the code
+#     in the repo rather than the last release.
+#   * alba comes from rubygems (upstream uses a path to its own checkout).
+#
+# `pg` and `oj_serializers` are dropped -- upstream lists them but neither
+# script requires them, and `pg` needs libpq to install.
+#
+# activerecord/sqlite3 are unpinned: upstream pins them to ~> 7.1 and ~> 1.4,
+# but turbostreamer requires activesupport >= 8.0, and Rails 8 needs
+# sqlite3 >= 2.1. Nothing in prep.rb depends on the older versions.
+
+source 'https://rubygems.org'
+
+gem 'turbostreamer', path: '../..'
+
+gem 'active_model_serializers'
+gem 'activerecord', '>= 8.0'
+gem 'alba'
+gem 'barley'
+gem 'benchmark-ips'
+gem 'benchmark-memory'
+gem 'blueprinter'
+gem 'csv'
+gem 'fast_serializer_ruby'
+gem 'jbuilder'
+gem 'jserializer'
+gem 'json'
+gem 'multi_json'
+gem 'oj'
+gem 'panko_serializer'
+gem 'primalize'
+gem 'props_template'
+gem 'rabl'
+gem 'representable'
+gem 'simple_ams'
+gem 'sqlite3'

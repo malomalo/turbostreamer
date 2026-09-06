@@ -69,4 +69,29 @@ ensure
   ENV.delete('PERFORM_CACHING')
 end
 
+# alba's benchmark suite, vendored under performance/alba. Shaped differently
+# from the Analyzer suites above -- benchmark-ips over ~17 serializers -- and it
+# carries its own bundle, so it is a separate task rather than part of
+# `rake performance`. See performance/alba/README.md.
+namespace :performance do
+  desc "Run alba's benchmark suite against this working tree"
+  task :alba do
+    dir = File.expand_path('../performance/alba', __FILE__)
+    gemfile = File.join(dir, 'Gemfile')
+
+    script = ENV.fetch('SCRIPT', 'collection.rb')
+
+    # This task runs under `bundle exec rake`, so the repo's own bundle is
+    # already in the environment. Without unbundling, its BUNDLE_GEMFILE and
+    # RUBYOPT leak into the child and it resolves against the wrong Gemfile.
+    Bundler.with_unbundled_env do
+      ENV['BUNDLE_GEMFILE'] = gemfile
+      Dir.chdir(dir) do
+        sh('bundle', 'install') unless File.exist?("#{gemfile}.lock")
+        sh('bundle', 'exec', 'ruby', script)
+      end
+    end
+  end
+end
+
 task test: "test:all"

@@ -16,6 +16,9 @@ Unreleased
   emitted a `"null!"` key whose value was an inspected `Object`.
 * Documented that `ActionController::API` silently skips layouts unless
   `ActionView::Layouts` is included.
+* Added alba's benchmark suite under `performance/alba`, run with
+  `rake performance:alba`. It is the suite whose figures get quoted at
+  TurboStreamer, and the published ones predate 2.0.
 
 2.0.0
 -----
