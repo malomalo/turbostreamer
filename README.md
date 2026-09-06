@@ -401,6 +401,35 @@ TurboStreamer.encode(encoder: TurboStreamer::WankelEncoder)
 TurboStreamer.encode(encoder: MyEncoder)
 ```
 
+### HTML escaping differs between the backends
+
+The two backends do not escape the same things, and the difference matters if
+the JSON is embedded in a page rather than served as a response body.
+
+Under Rails the railtie configures Oj with `mode: :rails`, which escapes `<`,
+`>` and `&` as `\u003c`, `\u003e` and `\u0026` exactly as
+`ActiveSupport::JSON` does. A document rendered through Oj can therefore be
+embedded in a `<script>` tag without closing it early:
+
+```ruby
+json.body '</script><script>alert(1)</script>'
+
+# Oj      => {"body":"\u003c/script\u003e\u003cscript\u003ealert(1)…"}
+# Wankel  => {"body":"</script><script>alert(1)</script>"}
+```
+
+**Wankel does not do this, and has no option that will** — it offers only
+`escape_solidus`, which escapes `/` and leaves the angle brackets alone. If you
+select the Wankel encoder and embed the output in HTML, escape it yourself at
+the point of embedding.
+
+Standalone (outside Rails) Oj defaults to `mode: :json` and does not escape
+either; the railtie is what turns it on. Set it yourself if you need it:
+
+```ruby
+TurboStreamer.set_default_encoder(:json, :oj, mode: :rails)
+```
+
 Setting the default encoder and options
 ---------------------------------------
 If you need explicitly set the default:

@@ -16,6 +16,10 @@ Unreleased
   emitted a `"null!"` key whose value was an inspected `Object`.
 * Documented that `ActionController::API` silently skips layouts unless
   `ActionView::Layouts` is included.
+* Documented that the two backends escape differently: under Rails the railtie
+  gives Oj `mode: :rails`, which escapes `<`, `>` and `&` like
+  `ActiveSupport::JSON`, while Wankel escapes none of them and has no option
+  that will.
 
 2.0.0
 -----
