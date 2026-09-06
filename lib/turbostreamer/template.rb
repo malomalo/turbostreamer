@@ -33,17 +33,23 @@ class TurboStreamer::Template < TurboStreamer
     end
 
     if name_or_options.is_a?(Hash)
-      # partial!({ partial: 'name', ... }) -- already an options hash
-      options = name_or_options
+      # partial!({ partial: 'name', ... }) -- already an options hash, and the
+      # caller's. Copy it and its locals; both are written to below.
+      options = name_or_options.dup
+      options[:locals] = options[:locals].dup if options[:locals]
     elsif name_or_options.nil?
       # partial! partial: 'name', collection: @posts, as: :post
-      # The keywords were split across the parameters above; put them back.
+      # The keywords were split across the parameters above; put them back. The
+      # rest is fresh, but a :locals passed within it is the caller's.
       options = locals
+      options[:locals] = options[:locals].dup if options[:locals]
       options[:as] = as if as
       options[:collection] = collection unless _blank?(collection)
     elsif locals.one? && locals.key?(:locals)
-      # partial! 'name', locals: { ... }
+      # partial! 'name', locals: { ... } -- the rest is fresh but the hash
+      # under :locals is the caller's.
       options = locals.merge(partial: name_or_options)
+      options[:locals] = options[:locals].dup if options[:locals]
       options[:as] = as if as.present?
       options[:collection] = collection unless _blank?(collection)
     else
@@ -163,14 +169,12 @@ class TurboStreamer::Template < TurboStreamer
 
   def _render_partial_with_options(options)
 
+    # Everything here is written to, and partial! guarantees these are ours:
+    # the keyword forms build them, and the two options-hash forms are copied
+    # there. So no defensive copy is needed on this path.
     options.reverse_merge! ::TurboStreamer::Template.template_lookup_options
     as = options[:as]&.to_sym
-    # Still copied. Keyword arguments keep the caller's hash out of `locals`,
-    # but not out of the two forms that hand us an options hash directly --
-    # `partial!(partial: 'x', locals: h)` passes h straight through, and the
-    # builder must not be written into it.
-    options[:locals] = options[:locals] ? options[:locals].dup : {}
-    options[:locals][:json] = self
+    (options[:locals] ||= {})[:json] = self
 
     if as && options.key?(:collection)
       # Option 1, nice simple, fast, calls find_template once

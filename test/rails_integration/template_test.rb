@@ -210,6 +210,25 @@ class RailsIntegration::TemplateTest < ActionView::TestCase
     assert_kind_of ArgumentError, error.cause
   end
 
+  # partial! owns the options it hands on, so nothing the caller passed is
+  # written to -- neither the options hash itself nor the locals inside it.
+  test 'partial! leaves an options hash passed positionally alone' do
+    json = render_streamer <<-STREAMER
+      opts = { partial: 'blog_post', collection: BLOG_POST_COLLECTION, as: :blog_post }
+      before = opts.keys.sort.map(&:to_s)
+      json.object! do
+        json.a { json.partial! opts }
+        json.before before
+        json.after opts.keys.sort.map(&:to_s)
+        json.leaked opts.key?(:json) || (opts[:locals] || {}).key?(:json)
+      end
+    STREAMER
+
+    parsed = JSON.load(json)
+    assert_equal parsed['before'], parsed['after'], 'the options hash gained keys'
+    assert_equal false, parsed['leaked'], 'the builder leaked into the caller\'s hash'
+  end
+
   # The options hash forms still hand us the caller's locals, so those are
   # copied rather than written into.
   test 'partial! leaves the locals of an options hash alone' do

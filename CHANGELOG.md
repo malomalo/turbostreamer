@@ -19,10 +19,12 @@ Unreleased
 * **Breaking:** `partial!` now takes `as:` and `collection:` as keyword
   arguments, and template locals as the keyword rest. An options hash held in a
   variable has to be splatted -- `json.partial! 'post', **options` -- where it
-  could previously be passed positionally. In exchange the caller's hash is
-  never mutated: `:as` used to be deleted out of it and the builder stored in
-  it, so rendering twice with one hash lost `:as` on the second call and
-  rendered a collection differently.
+  could previously be passed positionally.
+* `partial!` no longer writes to anything the caller passed it. `:as` was
+  deleted out of the caller's locals and the builder stored in them, so
+  rendering twice with one hash lost `:as` on the second call and rendered a
+  collection differently. `partial!(options_hash)` additionally gained
+  `:handlers` and `:locals` keys, the latter holding the builder.
 
 2.0.0
 -----
