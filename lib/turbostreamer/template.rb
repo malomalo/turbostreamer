@@ -38,14 +38,12 @@ class TurboStreamer::Template < TurboStreamer
     end
 
     if name.nil?
-      # partial! partial: 'name', collection: @posts, as: :post
-      # The keywords were split across the parameters above; put them back. The
-      # rest is fresh, but a :locals passed within it is the caller's.
-      options = locals
-      options[:locals] = options[:locals].dup if options[:locals]
-      options[:as] = as if as
-      options[:collection] = collection unless _blank?(collection)
-    elsif locals.one? && locals.key?(:locals)
+      given = locals[:partial]
+      raise ::ArgumentError, 'the partial name is the first argument: ' +
+        (given ? "`json.partial! #{given.inspect}, ...`" : "`json.partial! 'name', ...`")
+    end
+
+    if locals.one? && locals.key?(:locals)
       # partial! 'name', locals: { ... } -- the rest is fresh but the hash
       # under :locals is the caller's.
       options = locals.merge(partial: name)
@@ -108,7 +106,7 @@ class TurboStreamer::Template < TurboStreamer
     options = attributes.extract_options!
 
     if options.key?(:partial)
-      partial!(**options, collection: collection)
+      partial!(options[:partial], **options.except(:partial), collection: collection)
     else
       super
     end

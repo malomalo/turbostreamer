@@ -139,20 +139,26 @@ class RailsIntegration::TemplateTest < ActionView::TestCase
     assert_equal '[]', json
   end
 
-  test 'partial! renders collection (alt. syntax)' do
-    json = render_streamer <<-STREAMER
-      json.partial! :partial => 'blog_post', :collection => BLOG_POST_COLLECTION, :as => :blog_post
-    STREAMER
+  # The partial name is the first argument; naming it with `partial:` instead is
+  # refused with the call it should have been.
+  test 'partial! without a name says where the name goes' do
+    error = assert_raises(ActionView::Template::Error) do
+      render_streamer <<-STREAMER
+        json.partial! partial: 'blog_post', collection: BLOG_POST_COLLECTION, as: :blog_post
+      STREAMER
+    end
 
-    assert_collection_rendered json
+    assert_kind_of ArgumentError, error.cause
+    assert_match 'json.partial! "blog_post"', error.cause.message
   end
 
-  test 'partial! renders as empty array for nil-collection (alt. syntax)' do
-    json = render_streamer <<-STREAMER
-      json.partial! :partial => 'blog_post', :collection => nil, :as => :blog_post
-    STREAMER
+  test 'partial! with no arguments at all says where the name goes' do
+    error = assert_raises(ActionView::Template::Error) do
+      render_streamer("json.partial!")
+    end
 
-    assert_equal '[]', json
+    assert_kind_of ArgumentError, error.cause
+    assert_match 'first argument', error.cause.message
   end
 
   test 'render array of partials' do
@@ -251,7 +257,7 @@ class RailsIntegration::TemplateTest < ActionView::TestCase
     json = render_streamer <<-STREAMER
       shared = { blog_post: BLOG_POST_COLLECTION.first }
       json.object! do
-        json.a { json.partial! partial: 'blog_post', locals: shared }
+        json.a { json.partial! 'blog_post', locals: shared }
         json.leaked shared.key?(:json)
       end
     STREAMER

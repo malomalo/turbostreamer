@@ -184,25 +184,20 @@ json.partial! 'posts/post', collection: @posts, as: :post
 
 # or
 
-json.partial! partial: 'posts/post', collection: @posts, as: :post
-
-# or
-
 json.comments @post.comments, partial: 'comment/comment', as: :comment
 ```
 
-`partial!` takes `as:` and `collection:` as keyword arguments -- they are
-options rather than template locals -- and everything else as locals. Options
-held in a variable therefore have to be splatted, in either position:
+`partial!` takes the partial name as its first argument, `as:` and
+`collection:` as keyword arguments -- they are options rather than template
+locals -- and everything else as locals. So an options hash held in a variable
+has to be splatted, and the name stays out in front:
 
 ```ruby
 options = { collection: @posts, as: :post }
 
-json.partial! 'posts/post', **options            # yes
-json.partial! 'posts/post', options              # ArgumentError
-
-json.partial! **options.merge(partial: 'posts/post')   # yes
-json.partial! options.merge(partial: 'posts/post')     # ArgumentError
+json.partial! 'posts/post', **options   # yes
+json.partial! 'posts/post', options     # ArgumentError
+json.partial! **options.merge(partial: 'posts/post')   # ArgumentError
 ```
 
 `json.array!` passes its options through to `partial!`, so it accepts a hash
