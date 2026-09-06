@@ -163,6 +163,67 @@ class RailsIntegration::TemplateTest < ActionView::TestCase
     assert_collection_rendered json
   end
 
+  # The keyword rest is built fresh on every call, so a hash splatted into
+  # partial! is never written to. Compare the positional form below, which is
+  # no longer accepted.
+  test 'partial! leaves a splatted options hash alone' do
+    json = render_streamer <<-STREAMER
+      opts = { as: :blog_post, collection: BLOG_POST_COLLECTION }
+      json.array! do
+        json.child! { json.object! { json.set!(:first, opts.key?(:as)) } }
+        json.partial! 'blog_post', **opts
+        json.child! { json.object! { json.set!(:still_there, opts.key?(:as)) } }
+        json.child! { json.object! { json.set!(:no_builder, !opts.key?(:json)) } }
+      end
+    STREAMER
+
+    parsed = JSON.load(json)
+    assert_equal true, parsed.first['first']
+    assert_equal true, parsed[-2]['still_there'], ':as was deleted from the caller\'s hash'
+    assert_equal true, parsed[-1]['no_builder'], 'the builder leaked into the caller\'s hash'
+  end
+
+  test 'the same splatted options hash renders the same collection twice' do
+    json = render_streamer <<-STREAMER
+      opts = { as: :blog_post, collection: BLOG_POST_COLLECTION }
+      json.object! do
+        json.a { json.partial! 'blog_post', **opts }
+        json.b { json.partial! 'blog_post', **opts }
+      end
+    STREAMER
+
+    parsed = JSON.load(json)
+    assert_equal parsed['a'], parsed['b']
+    assert_equal BLOG_POST_COLLECTION.size, parsed['a'].size
+  end
+
+  # The incompatibility this signature introduces, asserted rather than left to
+  # be discovered: a hash held in a variable has to be splatted now.
+  test 'a hash passed positionally is no longer accepted' do
+    error = assert_raises(ActionView::Template::Error) do
+      render_streamer <<-STREAMER
+        opts = { as: :blog_post, collection: BLOG_POST_COLLECTION }
+        json.array! { json.partial! 'blog_post', opts }
+      STREAMER
+    end
+
+    assert_kind_of ArgumentError, error.cause
+  end
+
+  # The options hash forms still hand us the caller's locals, so those are
+  # copied rather than written into.
+  test 'partial! leaves the locals of an options hash alone' do
+    json = render_streamer <<-STREAMER
+      shared = { blog_post: BLOG_POST_COLLECTION.first }
+      json.object! do
+        json.a { json.partial! partial: 'blog_post', locals: shared }
+        json.leaked shared.key?(:json)
+      end
+    STREAMER
+
+    assert_equal false, JSON.load(json)['leaked']
+  end
+
   test 'render array of partials as empty array with nil-collection' do
     json = render_streamer <<-STREAMER
       json.array! nil, :partial => 'blog_post', :as => :blog_post

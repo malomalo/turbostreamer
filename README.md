@@ -191,6 +191,17 @@ json.partial! partial: 'posts/post', collection: @posts, as: :post
 json.comments @post.comments, partial: 'comment/comment', as: :comment
 ```
 
+`partial!` takes `as:` and `collection:` as keyword arguments -- they are
+options rather than template locals -- and everything else as locals. Options
+held in a variable therefore have to be splatted:
+
+```ruby
+options = { collection: @posts, as: :post }
+
+json.partial! 'posts/post', **options   # yes
+json.partial! 'posts/post', options     # ArgumentError
+```
+
 ### Layouts
 
 A `.json.streamer` layout can wrap the template. Call `json.yield!` where the

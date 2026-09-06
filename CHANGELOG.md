@@ -16,6 +16,13 @@ Unreleased
   emitted a `"null!"` key whose value was an inspected `Object`.
 * Documented that `ActionController::API` silently skips layouts unless
   `ActionView::Layouts` is included.
+* **Breaking:** `partial!` now takes `as:` and `collection:` as keyword
+  arguments, and template locals as the keyword rest. An options hash held in a
+  variable has to be splatted -- `json.partial! 'post', **options` -- where it
+  could previously be passed positionally. In exchange the caller's hash is
+  never mutated: `:as` used to be deleted out of it and the builder stored in
+  it, so rendering twice with one hash lost `:as` on the second call and
+  rendered a collection differently.
 
 2.0.0
 -----

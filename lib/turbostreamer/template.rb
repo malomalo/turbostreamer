@@ -19,26 +19,46 @@ class TurboStreamer::Template < TurboStreamer
   # place.
   attr_accessor :yield_content
   
-  def partial!(name_or_options, locals = {})
+  # `:as` and `:collection` are options rather than template locals, so they are
+  # named as such. Everything else is a local and lands in the keyword rest,
+  # which Ruby builds fresh on every call -- so the caller's own hash is never
+  # written to, where the previous signature took it positionally and deleted
+  # `:as` out of it.
+  #
+  # `collection:` defaults to BLANK rather than nil, because a nil collection is
+  # meaningful: `partial! 'post', collection: nil, as: :post` renders `[]`.
+  def partial!(name_or_options = nil, as: nil, collection: BLANK, **locals)
     if name_or_options.class.respond_to?(:model_name) && name_or_options.respond_to?(:to_partial_path)
-      @context.render(name_or_options, json: self)
-    else
-      if name_or_options.is_a?(Hash)
-        options = name_or_options
-      else
-        if locals.one? && (locals.keys.first == :locals)
-          options = locals.merge(partial: name_or_options)
-        else
-          options = { partial: name_or_options, locals: locals }
-        end
-        # partial! 'name', foo: 'bar'
-        as = locals.delete(:as)
-        options[:as] = as if as.present?
-        options[:collection] = locals[:collection] if locals.key?(:collection)
-      end
-      
-      _render_partial_with_options options
+      return @context.render(name_or_options, json: self)
     end
+
+    if name_or_options.is_a?(Hash)
+      # partial!({ partial: 'name', ... }) -- already an options hash
+      options = name_or_options
+    elsif name_or_options.nil?
+      # partial! partial: 'name', collection: @posts, as: :post
+      # The keywords were split across the parameters above; put them back.
+      options = locals
+      options[:as] = as if as
+      options[:collection] = collection unless _blank?(collection)
+    elsif locals.one? && locals.key?(:locals)
+      # partial! 'name', locals: { ... }
+      options = locals.merge(partial: name_or_options)
+      options[:as] = as if as.present?
+      options[:collection] = collection unless _blank?(collection)
+    else
+      # partial! 'name', foo: 'bar'
+      options = { partial: name_or_options, locals: locals }
+      options[:as] = as if as.present?
+      unless _blank?(collection)
+        options[:collection] = collection
+        # The positional form copied :collection onto the options and left it in
+        # the locals as well, so the partial saw it under that name too.
+        locals[:collection] = collection
+      end
+    end
+
+    _render_partial_with_options options
   end
 
   # The same thing as a statement rather than a value, for a layout that would
@@ -145,7 +165,11 @@ class TurboStreamer::Template < TurboStreamer
 
     options.reverse_merge! ::TurboStreamer::Template.template_lookup_options
     as = options[:as]&.to_sym
-    options[:locals] ||= {}
+    # Still copied. Keyword arguments keep the caller's hash out of `locals`,
+    # but not out of the two forms that hand us an options hash directly --
+    # `partial!(partial: 'x', locals: h)` passes h straight through, and the
+    # builder must not be written into it.
+    options[:locals] = options[:locals] ? options[:locals].dup : {}
     options[:locals][:json] = self
 
     if as && options.key?(:collection)
