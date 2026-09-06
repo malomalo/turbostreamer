@@ -16,6 +16,10 @@ Unreleased
   emitted a `"null!"` key whose value was an inspected `Object`.
 * Documented that `ActionController::API` silently skips layouts unless
   `ActionView::Layouts` is included.
+* Added props_template to the `rolftimmermans` and `dirk` performance suites.
+  It is the closest comparison TurboStreamer has -- the other direct-to-encoder
+  builder that caches serialized bytes rather than a structure -- and it was
+  missing from the reports.
 
 2.0.0
 -----

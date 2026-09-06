@@ -44,6 +44,7 @@ task :performance do
   files = [
     'rabl/oj.rb',
     'jbuilder/oj.rb',
+    'props_template/oj.rb',
     'turbostreamer/oj.rb',
     'turbostreamer/wankel.rb',
   ]
