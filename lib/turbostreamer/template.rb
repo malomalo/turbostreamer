@@ -3,12 +3,6 @@
 require 'turbostreamer'
 
 class TurboStreamer::Template < TurboStreamer
-  
-  class << self
-    attr_accessor :template_lookup_options
-  end
-
-  self.template_lookup_options = { handlers: [:streamer] }
 
   def initialize(context, *args, &block)
     @context = context
@@ -19,57 +13,18 @@ class TurboStreamer::Template < TurboStreamer
   # place.
   attr_accessor :yield_content
   
-  # `:as` and `:collection` are options rather than template locals, so they are
-  # named as such. Everything else is a local and lands in the keyword rest,
-  # which Ruby builds fresh on every call -- so the caller's own hash is never
-  # written to, where the previous signature took it positionally and deleted
-  # `:as` out of it.
-  #
-  # `collection:` defaults to BLANK rather than nil, because a nil collection is
-  # meaningful: `partial! 'post', collection: nil, as: :post` renders `[]`.
-  # The partial name is the first argument and template locals are named.
-  # Every other keyword is an option for Action View -- :as, :collection,
-  # :locale, :variants, :formats, :cached, and whatever else it grows -- so
-  # they never have to be enumerated here, and a local may be called anything,
-  # including the name of an option.
-  def partial!(name = nil, locals: nil, **render_options)
+  def partial!(name, locals: {}, **render_options)
     if name.class.respond_to?(:model_name) && name.respond_to?(:to_partial_path)
       return @context.render(name, json: self)
     end
 
-    if ::Hash === name
-      raise ::ArgumentError, 'pass partial options as keywords: ' \
-        "`json.partial! **options` rather than `json.partial! options`"
-    end
-
-    if name.nil?
-      given = render_options[:partial]
-      raise ::ArgumentError, 'the partial name is the first argument: ' +
-        (given ? "`json.partial! #{given.inspect}, ...`" : "`json.partial! 'name', ...`")
-    end
-
-    # The keyword rest is built fresh on every call, so it is ours to write to.
-    # The locals are the caller's, and are copied.
     options = render_options
     options[:partial] = name
-    options[:locals] = locals ? locals.dup : {}
-
-    options.reverse_merge! ::TurboStreamer::Template.template_lookup_options
-    # Not reverse_merge!, which a caller's :handlers would win against. Every
-    # other option is theirs to set, but this one decides whether the partial is
-    # rendered by the handler that knows what to do with the builder -- an ERB
-    # partial has none, so it renders to a string that is thrown away and the
-    # node silently disappears.
-    if (handlers = ::TurboStreamer::Template.template_lookup_options[:handlers])
-      options[:handlers] = handlers
-    end
+    options[:locals] = locals ? locals.dup : {} # TODO: move json to ivar so we don't have to dup
     options[:locals][:json] = self
+    options[:handlers] = [:streamer]
 
-    # :as reads from the options because it is one -- it arrives through the
-    # rest along with everything else Action View understands.
     if options[:as]&.to_sym && options.key?(:collection)
-      # One render for the whole collection, so Action View's find_template --
-      # one of its heavier calls -- runs once instead of per element.
       array! { @context.render(options) }
     else
       @context.render(options)

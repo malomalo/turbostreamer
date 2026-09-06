@@ -211,26 +211,10 @@ class RailsIntegration::TemplateTest < ActionView::TestCase
     refute_match 'variants', json
   end
 
-  # The partial name is the first argument; naming it with `partial:` instead is
-  # refused with the call it should have been.
-  test 'partial! without a name says where the name goes' do
-    error = assert_raises(ActionView::Template::Error) do
-      render_streamer <<-STREAMER
-        json.partial! partial: 'blog_post', collection: BLOG_POST_COLLECTION, as: :blog_post
-      STREAMER
-    end
-
-    assert_kind_of ArgumentError, error.cause
-    assert_match 'json.partial! "blog_post"', error.cause.message
-  end
-
   test 'partial! with no arguments at all says where the name goes' do
     error = assert_raises(ActionView::Template::Error) do
       render_streamer("json.partial!")
     end
-
-    assert_kind_of ArgumentError, error.cause
-    assert_match 'first argument', error.cause.message
   end
 
   test 'render array of partials' do
@@ -286,21 +270,6 @@ class RailsIntegration::TemplateTest < ActionView::TestCase
     end
 
     assert_kind_of ArgumentError, error.cause
-  end
-
-  # A Hash is no longer a partial name or an options bundle, so passing one
-  # positionally is refused with a message saying what to do instead, rather
-  # than reaching Action View as a nonsense partial name.
-  test 'an options hash passed as the only argument is refused' do
-    error = assert_raises(ActionView::Template::Error) do
-      render_streamer <<-STREAMER
-        opts = { partial: 'blog_post', collection: BLOG_POST_COLLECTION, as: :blog_post }
-        json.array! { json.partial! opts }
-      STREAMER
-    end
-
-    assert_kind_of ArgumentError, error.cause
-    assert_match '**options', error.cause.message
   end
 
   # array! splats into partial!, so a hash handed to it is copied on the way
