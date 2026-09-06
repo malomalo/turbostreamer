@@ -187,10 +187,23 @@ json.partial! 'posts/post', collection: @posts, as: :post
 json.comments @post.comments, partial: 'comment/comment', as: :comment
 ```
 
-`partial!` takes the partial name as its first argument, `as:` and
-`collection:` as keyword arguments -- they are options rather than template
-locals -- and everything else as locals. So an options hash held in a variable
-has to be splatted, and the name stays out in front:
+`partial!` takes the partial name as its first argument, and every other
+keyword as a template local. The exceptions are the options Action View itself
+understands, which are named parameters -- `as:`, `collection:`, `locale:`,
+`variants:` and `formats:`:
+
+```ruby
+json.partial! 'posts/post', locale: :de              # picks _post.de.json.streamer
+json.partial! 'posts/post', variants: :grid          # picks _post.json+grid.streamer
+json.partial! 'posts/post', title: 'Hello'           # a local named title
+```
+
+They have to be named, because with the partial name taken as the first
+argument an unnamed keyword is a local -- `locale: :de` would otherwise set a
+local called `locale` rather than choose a translation.
+
+An options hash held in a variable has to be splatted, and the name stays out
+in front:
 
 ```ruby
 options = { collection: @posts, as: :post }

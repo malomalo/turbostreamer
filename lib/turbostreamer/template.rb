@@ -27,7 +27,8 @@ class TurboStreamer::Template < TurboStreamer
   #
   # `collection:` defaults to BLANK rather than nil, because a nil collection is
   # meaningful: `partial! 'post', collection: nil, as: :post` renders `[]`.
-  def partial!(name = nil, as: nil, collection: BLANK, **locals)
+  def partial!(name = nil, as: nil, collection: BLANK,
+               locale: BLANK, variants: BLANK, formats: BLANK, **locals)
     if name.class.respond_to?(:model_name) && name.respond_to?(:to_partial_path)
       return @context.render(name, json: self)
     end
@@ -61,6 +62,15 @@ class TurboStreamer::Template < TurboStreamer
         locals[:collection] = collection
       end
     end
+
+    # Action View's own lookup options rather than template locals, so they go
+    # on the options it is handed and not into the locals hash. They have to be
+    # named: with the partial name taken as the first argument, an unnamed
+    # keyword is a local, and `locale:` would set a local called locale rather
+    # than choosing a translation.
+    options[:locale] = locale unless _blank?(locale)
+    options[:variants] = variants unless _blank?(variants)
+    options[:formats] = formats unless _blank?(formats)
 
     # Everything below is written to, and the branches above guarantee the
     # options are ours: the keyword forms build them, the two options-hash

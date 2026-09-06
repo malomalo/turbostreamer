@@ -16,17 +16,13 @@ Unreleased
   emitted a `"null!"` key whose value was an inspected `Object`.
 * Documented that `ActionController::API` silently skips layouts unless
   `ActionView::Layouts` is included.
-* **Breaking:** `partial!` now takes the partial name as its first argument,
-  `as:` and `collection:` as keyword arguments, and template locals as the
-  keyword rest. The name can no longer be given as a `partial:` option, and an
-  options hash held in a variable has to be splatted --
+* **Breaking:** `partial!` now takes the partial name as its first argument and
+  the options Action View understands -- `as:`, `collection:`, `locale:`,
+  `variants:`, `formats:` -- as named keyword arguments, with every other
+  keyword a template local. The name can no longer be given as a `partial:`
+  option, and an options hash held in a variable has to be splatted --
   `json.partial! 'post', **options`. Both refusals name the call that was meant.
   `json.array! @posts, partial: 'post', as: :post` is unaffected.
-
-  One capability goes with the `partial:` form: it was the only way to pass
-  Action View's own render options (`locale:`, `variants:`, `formats:`) through
-  to `render`, since a bare name makes every other keyword a template local.
-  That was never documented or tested.
 * `partial!` no longer writes to anything the caller passed it. `:as` was
   deleted out of the caller's locals and the builder stored in them, so
   rendering twice with one hash lost `:as` on the second call and rendered a

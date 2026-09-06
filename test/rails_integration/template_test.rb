@@ -46,7 +46,11 @@ class RailsIntegration::TemplateTest < ActionView::TestCase
     {
       '_partial.json.streamer'  => PARTIAL_TEMPLATE,
       '_blog_post.json.streamer' => BLOG_POST_TEMPLATE,
-      '_collection.json.streamer' => COLLECTION_TEMPLATE
+      '_collection.json.streamer' => COLLECTION_TEMPLATE,
+      '_localized.json.streamer' => "json.object! { json.set!(:said, 'hello') }",
+      '_localized.de.json.streamer' => "json.object! { json.set!(:said, 'hallo') }",
+      '_varied.json.streamer' => "json.object! { json.set!(:layout, 'list') }",
+      '_varied.json+grid.streamer' => "json.object! { json.set!(:layout, 'grid') }"
     }
   end
   
@@ -137,6 +141,37 @@ class RailsIntegration::TemplateTest < ActionView::TestCase
     STREAMER
 
     assert_equal '[]', json
+  end
+
+  # Action View's own lookup options are named parameters, because with the
+  # partial name taken as the first argument every other keyword is a local --
+  # `locale: :de` would otherwise set a local called locale rather than pick the
+  # German template.
+
+  test 'locale: selects the localized partial' do
+    assert_equal({'said' => 'hello'}, JSON.load(render_streamer("json.partial! 'localized'")))
+    assert_equal({'said' => 'hallo'}, JSON.load(render_streamer("json.partial! 'localized', locale: :de")))
+  end
+
+  test 'variants: selects the variant partial' do
+    assert_equal({'layout' => 'list'}, JSON.load(render_streamer("json.partial! 'varied'")))
+    assert_equal({'layout' => 'grid'}, JSON.load(render_streamer("json.partial! 'varied', variants: :grid")))
+  end
+
+  test 'formats: is passed to the lookup rather than becoming a local' do
+    json = render_streamer("json.partial! 'localized', formats: [:json]")
+
+    assert_equal({'said' => 'hello'}, JSON.load(json))
+  end
+
+  test 'lookup options do not leak into the partial as locals' do
+    json = render_streamer(<<-STREAMER)
+      json.partial! 'partial', locale: :en, variants: :grid, formats: [:json]
+    STREAMER
+
+    # _partial renders its own locals; a leaked :locale would show up there.
+    refute_match 'locale', json
+    refute_match 'variants', json
   end
 
   # The partial name is the first argument; naming it with `partial:` instead is
