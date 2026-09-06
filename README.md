@@ -270,6 +270,23 @@ Two differences worth knowing:
   there is nothing to suspend. A JSON document's shape is positional, so one
   yield in one place is generally what you want.
 
+#### Layouts in API-only apps
+
+`ActionController::API` does not include `ActionView::Layouts`, so a controller
+inheriting from it renders the template and **silently skips the layout** — no
+error, just a response missing whatever the layout wraps it in. Include the
+module to turn layouts back on:
+
+```ruby
+module Api
+  class BaseController < ActionController::API
+    include ActionView::Layouts
+
+    layout 'api'
+  end
+end
+```
+
 You can explicitly make TurboStreamer object return null if you want:
 
 ``` ruby

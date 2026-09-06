@@ -11,6 +11,8 @@ Unreleased
   inline the one-line `key!`/`value!` hops; encoder container checks
   simplified). With the memoized keys: roughly +14–20% throughput on the
   benchmark suites under the interpreter, +8–13% under YJIT.
+* Documented that `ActionController::API` silently skips layouts unless
+  `ActionView::Layouts` is included.
 
 2.0.0
 -----
