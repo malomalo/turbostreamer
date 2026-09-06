@@ -55,6 +55,14 @@ class TurboStreamer::Template < TurboStreamer
     options[:locals] = locals ? locals.dup : {}
 
     options.reverse_merge! ::TurboStreamer::Template.template_lookup_options
+    # Not reverse_merge!, which a caller's :handlers would win against. Every
+    # other option is theirs to set, but this one decides whether the partial is
+    # rendered by the handler that knows what to do with the builder -- an ERB
+    # partial has none, so it renders to a string that is thrown away and the
+    # node silently disappears.
+    if (handlers = ::TurboStreamer::Template.template_lookup_options[:handlers])
+      options[:handlers] = handlers
+    end
     options[:locals][:json] = self
 
     # :as reads from the options because it is one -- it arrives through the

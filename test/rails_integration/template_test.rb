@@ -149,6 +149,25 @@ class RailsIntegration::TemplateTest < ActionView::TestCase
   # `locale: :de` would otherwise set a local called locale rather than pick the
   # German template.
 
+  # :handlers is the one option a caller cannot set. Everything else is theirs,
+  # but this decides whether the partial is rendered by the handler that knows
+  # about the builder -- an ERB partial has none, renders to a string that is
+  # discarded, and the node silently disappears.
+  test 'handlers: cannot be overridden per call' do
+    resolver = ActionView::FixtureResolver.new(
+      '_both.json.erb' => 'SHOULD NOT APPEAR',
+      '_both.json.streamer' => 'json.object! { json.set!(:a, 1) }',
+      'test.json.streamer' => ''
+    )
+    lookup = ActionView::LookupContext.new(ActionView::PathSet.new([resolver]), formats: [:json])
+    view = ActionView::Base.with_empty_template_cache.new(lookup, {}, nil)
+    source = "json.partial! 'both', handlers: [:erb]"
+    template = ActionView::Template.new(source, 'test', TurboStreamer::Handler,
+                                        format: :json, virtual_path: 'test', locals: [])
+
+    assert_equal({'a' => 1}, JSON.load(template.render(view, {}).strip))
+  end
+
   # Nothing is reserved: an option TurboStreamer has never heard of still
   # reaches Action View, and a local may be named after one without being
   # mistaken for it.

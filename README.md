@@ -198,13 +198,18 @@ json.partial! 'posts/post', variants: :grid          # picks _post.json+grid.str
 json.partial! 'posts/post', collection: @posts, as: :post
 ```
 
-Nothing is reserved, so options TurboStreamer has never heard of reach Action
-View anyway -- `cached:`, `layout:`, and whatever it adds next -- and a local
-may be named after one of them without being mistaken for it:
+Options TurboStreamer has never heard of reach Action View anyway --
+`cached:`, `layout:`, and whatever it adds next -- and a local may be named
+after one of them without being mistaken for it:
 
 ```ruby
 json.partial! 'posts/post', locals: { formats: 'a local called formats' }
 ```
+
+The one exception is `handlers:`, which is fixed to `[:streamer]`. It decides
+whether the partial is rendered by the handler that knows about the builder, so
+overriding it does not render some other kind of partial -- it renders nothing
+at all, silently.
 
 An options hash held in a variable has to be splatted, and the name stays out
 in front:
