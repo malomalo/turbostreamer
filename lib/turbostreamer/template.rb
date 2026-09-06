@@ -64,7 +64,21 @@ class TurboStreamer::Template < TurboStreamer
       end
     end
 
-    _render_partial_with_options options
+    # Everything below is written to, and the branches above guarantee the
+    # options are ours: the keyword forms build them, the two options-hash
+    # forms copy the caller's.
+    options.reverse_merge! ::TurboStreamer::Template.template_lookup_options
+    (options[:locals] ||= {})[:json] = self
+
+    # :as reads from the options rather than the keyword, because the
+    # options-hash forms carry it there and never bind the keyword.
+    if options[:as]&.to_sym && options.key?(:collection)
+      # One render for the whole collection, so Action View's find_template --
+      # one of its heavier calls -- runs once instead of per element.
+      array! { @context.render(options) }
+    else
+      @context.render(options)
+    end
   end
 
   # The same thing as a statement rather than a value, for a layout that would
@@ -167,55 +181,6 @@ class TurboStreamer::Template < TurboStreamer
 
   private
 
-  def _render_partial_with_options(options)
-
-    # Everything here is written to, and partial! guarantees these are ours:
-    # the keyword forms build them, and the two options-hash forms are copied
-    # there. So no defensive copy is needed on this path.
-    options.reverse_merge! ::TurboStreamer::Template.template_lookup_options
-    as = options[:as]&.to_sym
-    (options[:locals] ||= {})[:json] = self
-
-    if as && options.key?(:collection)
-      # Option 1, nice simple, fast, calls find_template once
-      array! { @context.render(options) }
-
-      # Option 2, the jBuilder way, slow because find_template for every item
-      # in the collection (a method which is known as one of the heaviest parts
-      # of Action View)
-      # as = as.to_sym
-      # collection = options.delete(:collection)
-      # locals = options.delete(:locals)
-      # array! collection do |member|
-      #   member_locals = locals.clone
-      #   member_locals.merge! collection: collection
-      #   member_locals.merge! as => member
-      #   _render_partial options.merge(locals: member_locals)
-      # end
-
-      # Option 3, the fastest, haven't looked into precisely why, but would need
-      # to customeize to the rails version
-      # lookup_context = @context.view_renderer.lookup_context
-      # options[:locals][:json] = self
-      # options[:locals][:collection] = options[:collection]
-      #
-      # pr = ActionView::PartialRenderer.new(lookup_context)
-      # pr.send(:setup, @context, options, as, nil)
-      # path = pr.instance_variable_get(:@path)
-      # a, b, c = pr.send(:retrieve_variable, path, as)
-      # template_keys = pr.send(:retrieve_template_keys, a).compact
-      # # + [:"#{a}__counter", :"#{a}_iteration"]
-      # template = pr.send(:find_partial, path, template_keys)
-      # locals = options[:locals]
-      # array! options[:collection] do |member|
-      #   locals[as] = member
-      #   template.render(@context, locals)
-      # end
-    else
-      @context.render(options)
-    end
-  end
-  
   def _keys_to_collection_map(collection, options)
     key = options.delete(:key)
     
