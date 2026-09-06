@@ -17,14 +17,18 @@ Unreleased
 * Documented that `ActionController::API` silently skips layouts unless
   `ActionView::Layouts` is included.
 * **Breaking:** `partial!` now takes `as:` and `collection:` as keyword
-  arguments, and template locals as the keyword rest. An options hash held in a
-  variable has to be splatted -- `json.partial! 'post', **options` -- where it
-  could previously be passed positionally.
+  arguments, and template locals as the keyword rest. Its first argument is a
+  partial name (or a renderable object) and no longer doubles as an options
+  hash, so options held in a variable have to be splatted --
+  `json.partial! 'post', **options`, `json.partial! **options` -- where either
+  could previously be passed as a hash. A hash passed positionally raises an
+  `ArgumentError` saying so. `json.array! @posts, partial: 'post', as: :post` is
+  unaffected.
 * `partial!` no longer writes to anything the caller passed it. `:as` was
   deleted out of the caller's locals and the builder stored in them, so
   rendering twice with one hash lost `:as` on the second call and rendered a
-  collection differently. `partial!(options_hash)` additionally gained
-  `:handlers` and `:locals` keys, the latter holding the builder.
+  collection differently. The options hash itself was written to as well,
+  gaining `:handlers` and a `:locals` holding the builder.
 
 2.0.0
 -----

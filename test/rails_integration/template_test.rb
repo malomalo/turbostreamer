@@ -210,14 +210,29 @@ class RailsIntegration::TemplateTest < ActionView::TestCase
     assert_kind_of ArgumentError, error.cause
   end
 
-  # partial! owns the options it hands on, so nothing the caller passed is
-  # written to -- neither the options hash itself nor the locals inside it.
-  test 'partial! leaves an options hash passed positionally alone' do
+  # A Hash is no longer a partial name or an options bundle, so passing one
+  # positionally is refused with a message saying what to do instead, rather
+  # than reaching Action View as a nonsense partial name.
+  test 'an options hash passed as the only argument is refused' do
+    error = assert_raises(ActionView::Template::Error) do
+      render_streamer <<-STREAMER
+        opts = { partial: 'blog_post', collection: BLOG_POST_COLLECTION, as: :blog_post }
+        json.array! { json.partial! opts }
+      STREAMER
+    end
+
+    assert_kind_of ArgumentError, error.cause
+    assert_match '**options', error.cause.message
+  end
+
+  # array! splats into partial!, so a hash handed to it is copied on the way
+  # through and comes back as it went in.
+  test 'array! leaves an options hash it was given alone' do
     json = render_streamer <<-STREAMER
-      opts = { partial: 'blog_post', collection: BLOG_POST_COLLECTION, as: :blog_post }
+      opts = { partial: 'blog_post', as: :blog_post }
       before = opts.keys.sort.map(&:to_s)
       json.object! do
-        json.a { json.partial! opts }
+        json.a { json.array! BLOG_POST_COLLECTION, opts }
         json.before before
         json.after opts.keys.sort.map(&:to_s)
         json.leaked opts.key?(:json) || (opts[:locals] || {}).key?(:json)
@@ -225,6 +240,7 @@ class RailsIntegration::TemplateTest < ActionView::TestCase
     STREAMER
 
     parsed = JSON.load(json)
+    assert_equal BLOG_POST_COLLECTION.size, parsed['a'].size
     assert_equal parsed['before'], parsed['after'], 'the options hash gained keys'
     assert_equal false, parsed['leaked'], 'the builder leaked into the caller\'s hash'
   end

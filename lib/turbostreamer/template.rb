@@ -27,17 +27,17 @@ class TurboStreamer::Template < TurboStreamer
   #
   # `collection:` defaults to BLANK rather than nil, because a nil collection is
   # meaningful: `partial! 'post', collection: nil, as: :post` renders `[]`.
-  def partial!(name_or_options = nil, as: nil, collection: BLANK, **locals)
-    if name_or_options.class.respond_to?(:model_name) && name_or_options.respond_to?(:to_partial_path)
-      return @context.render(name_or_options, json: self)
+  def partial!(name = nil, as: nil, collection: BLANK, **locals)
+    if name.class.respond_to?(:model_name) && name.respond_to?(:to_partial_path)
+      return @context.render(name, json: self)
     end
 
-    if name_or_options.is_a?(Hash)
-      # partial!({ partial: 'name', ... }) -- already an options hash, and the
-      # caller's. Copy it and its locals; both are written to below.
-      options = name_or_options.dup
-      options[:locals] = options[:locals].dup if options[:locals]
-    elsif name_or_options.nil?
+    if ::Hash === name
+      raise ::ArgumentError, 'pass partial options as keywords: ' \
+        "`json.partial! **options` rather than `json.partial! options`"
+    end
+
+    if name.nil?
       # partial! partial: 'name', collection: @posts, as: :post
       # The keywords were split across the parameters above; put them back. The
       # rest is fresh, but a :locals passed within it is the caller's.
@@ -48,18 +48,18 @@ class TurboStreamer::Template < TurboStreamer
     elsif locals.one? && locals.key?(:locals)
       # partial! 'name', locals: { ... } -- the rest is fresh but the hash
       # under :locals is the caller's.
-      options = locals.merge(partial: name_or_options)
+      options = locals.merge(partial: name)
       options[:locals] = options[:locals].dup if options[:locals]
       options[:as] = as if as.present?
       options[:collection] = collection unless _blank?(collection)
     else
       # partial! 'name', foo: 'bar'
-      options = { partial: name_or_options, locals: locals }
+      options = { partial: name, locals: locals }
       options[:as] = as if as.present?
       unless _blank?(collection)
         options[:collection] = collection
-        # The positional form copied :collection onto the options and left it in
-        # the locals as well, so the partial saw it under that name too.
+        # :collection is left in the locals as well, so a partial can refer to
+        # the whole collection under that name and not just its own element.
         locals[:collection] = collection
       end
     end
@@ -108,7 +108,7 @@ class TurboStreamer::Template < TurboStreamer
     options = attributes.extract_options!
 
     if options.key?(:partial)
-      partial! options.merge(collection: collection)
+      partial!(**options, collection: collection)
     else
       super
     end
