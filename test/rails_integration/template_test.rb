@@ -163,6 +163,40 @@ class RailsIntegration::TemplateTest < ActionView::TestCase
     assert_collection_rendered json
   end
 
+  # partial! used to pull :as out of the caller's own hash and put the builder
+  # into it, so a hash reused across two renders lost :as on the second and took
+  # a different path through _render_partial_with_options.
+  test 'partial! leaves the options hash it was given alone' do
+    json = render_streamer <<-STREAMER
+      opts = { as: :blog_post, collection: BLOG_POST_COLLECTION }
+      json.array! do
+        json.child! { json.object! { json.set!(:first, opts.key?(:as)) } }
+        json.partial! 'blog_post', opts
+        json.child! { json.object! { json.set!(:still_there, opts.key?(:as)) } }
+        json.child! { json.object! { json.set!(:no_builder, !opts.key?(:json)) } }
+      end
+    STREAMER
+
+    parsed = JSON.load(json)
+    assert_equal true, parsed.first['first']
+    assert_equal true, parsed[-2]['still_there'], ':as was deleted from the caller\'s hash'
+    assert_equal true, parsed[-1]['no_builder'], 'the builder leaked into the caller\'s hash'
+  end
+
+  test 'the same options hash renders the same collection twice' do
+    json = render_streamer <<-STREAMER
+      opts = { as: :blog_post, collection: BLOG_POST_COLLECTION }
+      json.object! do
+        json.a { json.partial! 'blog_post', opts }
+        json.b { json.partial! 'blog_post', opts }
+      end
+    STREAMER
+
+    parsed = JSON.load(json)
+    assert_equal parsed['a'], parsed['b']
+    assert_equal BLOG_POST_COLLECTION.size, parsed['a'].size
+  end
+
   test 'render array of partials as empty array with nil-collection' do
     json = render_streamer <<-STREAMER
       json.array! nil, :partial => 'blog_post', :as => :blog_post

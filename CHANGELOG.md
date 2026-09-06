@@ -16,6 +16,10 @@ Unreleased
   emitted a `"null!"` key whose value was an inspected `Object`.
 * Documented that `ActionController::API` silently skips layouts unless
   `ActionView::Layouts` is included.
+* `partial!` no longer mutates the options hash it is given. It deleted `:as`
+  from the caller's own hash and stored the builder in it, so rendering twice
+  with one hash lost `:as` on the second call and rendered a collection
+  differently.
 
 2.0.0
 -----

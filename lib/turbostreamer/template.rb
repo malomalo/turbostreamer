@@ -29,12 +29,16 @@ class TurboStreamer::Template < TurboStreamer
         if locals.one? && (locals.keys.first == :locals)
           options = locals.merge(partial: name_or_options)
         else
-          options = { partial: name_or_options, locals: locals }
+          # Copied, because :as is pulled out of it below and the builder is
+          # put in further down. Both used to land in the caller's own hash, so
+          # rendering twice with one options hash lost :as on the second call
+          # and took a different path through _render_partial_with_options.
+          options = { partial: name_or_options, locals: locals.dup }
         end
         # partial! 'name', foo: 'bar'
-        as = locals.delete(:as)
+        as = options[:locals].delete(:as)
         options[:as] = as if as.present?
-        options[:collection] = locals[:collection] if locals.key?(:collection)
+        options[:collection] = options[:locals][:collection] if options[:locals].key?(:collection)
       end
       
       _render_partial_with_options options
@@ -145,7 +149,9 @@ class TurboStreamer::Template < TurboStreamer
 
     options.reverse_merge! ::TurboStreamer::Template.template_lookup_options
     as = options[:as]&.to_sym
-    options[:locals] ||= {}
+    # Duped for the same reason as in partial!: a caller that passed its own
+    # hash as :locals should not come back holding a reference to the builder.
+    options[:locals] = options[:locals] ? options[:locals].dup : {}
     options[:locals][:json] = self
 
     if as && options.key?(:collection)
