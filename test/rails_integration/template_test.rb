@@ -50,7 +50,8 @@ class RailsIntegration::TemplateTest < ActionView::TestCase
       '_localized.json.streamer' => "json.object! { json.set!(:said, 'hello') }",
       '_localized.de.json.streamer' => "json.object! { json.set!(:said, 'hallo') }",
       '_varied.json.streamer' => "json.object! { json.set!(:layout, 'list') }",
-      '_varied.json+grid.streamer' => "json.object! { json.set!(:layout, 'grid') }"
+      '_varied.json+grid.streamer' => "json.object! { json.set!(:layout, 'grid') }",
+      '_named_like_options.json.streamer' => "json.object! { json.a formats; json.b object; json.c collection }"
     }
   end
   
@@ -147,6 +148,23 @@ class RailsIntegration::TemplateTest < ActionView::TestCase
   # partial name taken as the first argument every other keyword is a local --
   # `locale: :de` would otherwise set a local called locale rather than pick the
   # German template.
+
+  # Nothing is reserved: an option TurboStreamer has never heard of still
+  # reaches Action View, and a local may be named after one without being
+  # mistaken for it.
+  test 'a local may be named like a render option' do
+    json = render_streamer("json.partial! 'named_like_options', locals: { formats: 1, object: 2, collection: 3 }")
+
+    assert_equal({'a' => 1, 'b' => 2, 'c' => 3}, JSON.load(json))
+  end
+
+  test 'an option turbostreamer does not name still reaches Action View' do
+    # :cached is nothing to do with turbostreamer's own cache!; it is Action
+    # View's, and it is passed through without being enumerated.
+    json = render_streamer("json.partial! 'partial', cached: false")
+
+    refute_empty json
+  end
 
   test 'locale: selects the localized partial' do
     assert_equal({'said' => 'hello'}, JSON.load(render_streamer("json.partial! 'localized'")))
@@ -620,7 +638,7 @@ class RailsIntegration::TemplateTest < ActionView::TestCase
 
     json = render_streamer <<-STREAMER
       json.cache_collection! BLOG_POST_COLLECTION do |blog_post|
-        json.partial! 'blog_post', :blog_post => blog_post
+        json.partial! 'blog_post', locals: { blog_post: blog_post }
       end
     STREAMER
 
@@ -635,7 +653,7 @@ class RailsIntegration::TemplateTest < ActionView::TestCase
 
     json = render_streamer <<-STREAMER
       json.cache_collection! BLOG_POST_COLLECTION, key: CACHE_KEY_PROC do |blog_post|
-        json.partial! 'blog_post', :blog_post => blog_post
+        json.partial! 'blog_post', locals: { blog_post: blog_post }
       end
     STREAMER
 
@@ -647,7 +665,7 @@ class RailsIntegration::TemplateTest < ActionView::TestCase
 
     json = render_streamer <<-STREAMER
       json.cache_collection! BLOG_POST_COLLECTION do |blog_post|
-        json.partial! 'blog_post', :blog_post => blog_post
+        json.partial! 'blog_post', locals: { blog_post: blog_post }
       end
     STREAMER
 
@@ -665,7 +683,7 @@ class RailsIntegration::TemplateTest < ActionView::TestCase
         json.one 2
         json.set! 'key' do
           json.cache_collection! BLOG_POST_COLLECTION, key: CACHE_KEY_PROC do |blog_post|
-            json.partial! 'blog_post', :blog_post => blog_post
+            json.partial! 'blog_post', locals: { blog_post: blog_post }
           end
         end
       end

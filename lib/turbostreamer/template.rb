@@ -27,8 +27,12 @@ class TurboStreamer::Template < TurboStreamer
   #
   # `collection:` defaults to BLANK rather than nil, because a nil collection is
   # meaningful: `partial! 'post', collection: nil, as: :post` renders `[]`.
-  def partial!(name = nil, as: nil, collection: BLANK,
-               locale: BLANK, variants: BLANK, formats: BLANK, **locals)
+  # The partial name is the first argument and template locals are named.
+  # Every other keyword is an option for Action View -- :as, :collection,
+  # :locale, :variants, :formats, :cached, and whatever else it grows -- so
+  # they never have to be enumerated here, and a local may be called anything,
+  # including the name of an option.
+  def partial!(name = nil, locals: nil, **render_options)
     if name.class.respond_to?(:model_name) && name.respond_to?(:to_partial_path)
       return @context.render(name, json: self)
     end
@@ -39,47 +43,22 @@ class TurboStreamer::Template < TurboStreamer
     end
 
     if name.nil?
-      given = locals[:partial]
+      given = render_options[:partial]
       raise ::ArgumentError, 'the partial name is the first argument: ' +
         (given ? "`json.partial! #{given.inspect}, ...`" : "`json.partial! 'name', ...`")
     end
 
-    if locals.one? && locals.key?(:locals)
-      # partial! 'name', locals: { ... } -- the rest is fresh but the hash
-      # under :locals is the caller's.
-      options = locals.merge(partial: name)
-      options[:locals] = options[:locals].dup if options[:locals]
-      options[:as] = as if as.present?
-      options[:collection] = collection unless _blank?(collection)
-    else
-      # partial! 'name', foo: 'bar'
-      options = { partial: name, locals: locals }
-      options[:as] = as if as.present?
-      unless _blank?(collection)
-        options[:collection] = collection
-        # :collection is left in the locals as well, so a partial can refer to
-        # the whole collection under that name and not just its own element.
-        locals[:collection] = collection
-      end
-    end
+    # The keyword rest is built fresh on every call, so it is ours to write to.
+    # The locals are the caller's, and are copied.
+    options = render_options
+    options[:partial] = name
+    options[:locals] = locals ? locals.dup : {}
 
-    # Action View's own lookup options rather than template locals, so they go
-    # on the options it is handed and not into the locals hash. They have to be
-    # named: with the partial name taken as the first argument, an unnamed
-    # keyword is a local, and `locale:` would set a local called locale rather
-    # than choosing a translation.
-    options[:locale] = locale unless _blank?(locale)
-    options[:variants] = variants unless _blank?(variants)
-    options[:formats] = formats unless _blank?(formats)
-
-    # Everything below is written to, and the branches above guarantee the
-    # options are ours: the keyword forms build them, the two options-hash
-    # forms copy the caller's.
     options.reverse_merge! ::TurboStreamer::Template.template_lookup_options
-    (options[:locals] ||= {})[:json] = self
+    options[:locals][:json] = self
 
-    # :as reads from the options rather than the keyword, because the
-    # options-hash forms carry it there and never bind the keyword.
+    # :as reads from the options because it is one -- it arrives through the
+    # rest along with everything else Action View understands.
     if options[:as]&.to_sym && options.key?(:collection)
       # One render for the whole collection, so Action View's find_template --
       # one of its heavier calls -- runs once instead of per element.

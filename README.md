@@ -170,7 +170,7 @@ You can use partials as well. The following will render the file
 the partial.
 
 ```ruby
-json.partial! 'comments/comments', comments: @message.comments
+json.partial! 'comments/comments', locals: { comments: @message.comments }
 ```
 
 It's also possible to render collections of partials:
@@ -187,20 +187,24 @@ json.partial! 'posts/post', collection: @posts, as: :post
 json.comments @post.comments, partial: 'comment/comment', as: :comment
 ```
 
-`partial!` takes the partial name as its first argument, and every other
-keyword as a template local. The exceptions are the options Action View itself
-understands, which are named parameters -- `as:`, `collection:`, `locale:`,
-`variants:` and `formats:`:
+The signature is `partial!(name, locals: nil, **render_options)`: the partial
+name comes first, template locals go in `locals:`, and every other keyword is
+passed to Action View as a render option.
 
 ```ruby
+json.partial! 'posts/post', locals: { post: @post }  # a local named post
 json.partial! 'posts/post', locale: :de              # picks _post.de.json.streamer
 json.partial! 'posts/post', variants: :grid          # picks _post.json+grid.streamer
-json.partial! 'posts/post', title: 'Hello'           # a local named title
+json.partial! 'posts/post', collection: @posts, as: :post
 ```
 
-They have to be named, because with the partial name taken as the first
-argument an unnamed keyword is a local -- `locale: :de` would otherwise set a
-local called `locale` rather than choose a translation.
+Nothing is reserved, so options TurboStreamer has never heard of reach Action
+View anyway -- `cached:`, `layout:`, and whatever it adds next -- and a local
+may be named after one of them without being mistaken for it:
+
+```ruby
+json.partial! 'posts/post', locals: { formats: 'a local called formats' }
+```
 
 An options hash held in a variable has to be splatted, and the name stays out
 in front:
