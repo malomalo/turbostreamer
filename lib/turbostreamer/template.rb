@@ -13,7 +13,7 @@ class TurboStreamer::Template < TurboStreamer
   # place.
   attr_accessor :yield_content
   
-  def partial!(name, locals: {}, **render_options)
+  def partial!(name, locals: nil, **render_options)
     if name.class.respond_to?(:model_name) && name.respond_to?(:to_partial_path)
       return @context.render(name, json: self)
     end

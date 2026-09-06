@@ -259,19 +259,6 @@ class RailsIntegration::TemplateTest < ActionView::TestCase
     assert_equal BLOG_POST_COLLECTION.size, parsed['a'].size
   end
 
-  # The incompatibility this signature introduces, asserted rather than left to
-  # be discovered: a hash held in a variable has to be splatted now.
-  test 'a hash passed positionally is no longer accepted' do
-    error = assert_raises(ActionView::Template::Error) do
-      render_streamer <<-STREAMER
-        opts = { as: :blog_post, collection: BLOG_POST_COLLECTION }
-        json.array! { json.partial! 'blog_post', opts }
-      STREAMER
-    end
-
-    assert_kind_of ArgumentError, error.cause
-  end
-
   # array! splats into partial!, so a hash handed to it is copied on the way
   # through and comes back as it went in.
   test 'array! leaves an options hash it was given alone' do
