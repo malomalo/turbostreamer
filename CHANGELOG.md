@@ -16,6 +16,21 @@ Unreleased
   emitted a `"null!"` key whose value was an inspected `Object`.
 * Documented that `ActionController::API` silently skips layouts unless
   `ActionView::Layouts` is included.
+* A key given no value, block or attributes -- `json.foo` on its own -- now
+  raises `Errors::MissingValueError` naming the key. It used to reach the
+  encoder holding the BLANK sentinel, which Oj wrote out as the inspected
+  `Object`, memory address included.
+* The Wankel encoder refuses the same malformed shapes Oj's writer already
+  refused, rather than writing broken JSON: a key inside an array (`["a",1]`
+  from `merge!`-ing a Hash into an array) and a key never given a value
+  (`{"a"}`).
+* Encoder options configured for an encoder now apply whether it is named by
+  symbol or by class. `encoder: TurboStreamer::OjEncoder` found no options and
+  silently dropped whatever was set for `:oj` -- including the railtie's
+  `mode: :rails`, and so its HTML escaping -- where `encoder: :oj` kept them.
+* `has_default_encoder_options?` no longer reports true for an encoder merely
+  because something was rendered with it. Building a builder read through the
+  options Hash's default proc, which assigns as it reads.
 
 2.0.0
 -----
