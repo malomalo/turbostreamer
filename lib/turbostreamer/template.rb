@@ -3,12 +3,6 @@
 require 'turbostreamer'
 
 class TurboStreamer::Template < TurboStreamer
-  
-  class << self
-    attr_accessor :template_lookup_options
-  end
-
-  self.template_lookup_options = { handlers: [:streamer] }
 
   def initialize(context, *args, &block)
     @context = context
@@ -19,25 +13,21 @@ class TurboStreamer::Template < TurboStreamer
   # place.
   attr_accessor :yield_content
   
-  def partial!(name_or_options, locals = {})
-    if name_or_options.class.respond_to?(:model_name) && name_or_options.respond_to?(:to_partial_path)
-      @context.render(name_or_options, json: self)
+  def partial!(name, locals: nil, **render_options)
+    if name.class.respond_to?(:model_name) && name.respond_to?(:to_partial_path)
+      return @context.render(name, json: self)
+    end
+
+    options = render_options
+    options[:partial] = name
+    options[:locals] = locals ? locals.dup : {} # TODO: move json to ivar so we don't have to dup
+    options[:locals][:json] = self
+    options[:handlers] = [:streamer]
+
+    if options[:as]&.to_sym && options.key?(:collection)
+      array! { @context.render(options) }
     else
-      if name_or_options.is_a?(Hash)
-        options = name_or_options
-      else
-        if locals.one? && (locals.keys.first == :locals)
-          options = locals.merge(partial: name_or_options)
-        else
-          options = { partial: name_or_options, locals: locals }
-        end
-        # partial! 'name', foo: 'bar'
-        as = locals.delete(:as)
-        options[:as] = as if as.present?
-        options[:collection] = locals[:collection] if locals.key?(:collection)
-      end
-      
-      _render_partial_with_options options
+      @context.render(options)
     end
   end
 
@@ -68,7 +58,7 @@ class TurboStreamer::Template < TurboStreamer
     options = attributes.extract_options!
 
     if options.key?(:partial)
-      partial! options.merge(collection: collection)
+      partial!(options[:partial], **options.except(:partial), collection: collection)
     else
       super
     end
@@ -141,53 +131,6 @@ class TurboStreamer::Template < TurboStreamer
 
   private
 
-  def _render_partial_with_options(options)
-
-    options.reverse_merge! ::TurboStreamer::Template.template_lookup_options
-    as = options[:as]&.to_sym
-    options[:locals] ||= {}
-    options[:locals][:json] = self
-
-    if as && options.key?(:collection)
-      # Option 1, nice simple, fast, calls find_template once
-      array! { @context.render(options) }
-
-      # Option 2, the jBuilder way, slow because find_template for every item
-      # in the collection (a method which is known as one of the heaviest parts
-      # of Action View)
-      # as = as.to_sym
-      # collection = options.delete(:collection)
-      # locals = options.delete(:locals)
-      # array! collection do |member|
-      #   member_locals = locals.clone
-      #   member_locals.merge! collection: collection
-      #   member_locals.merge! as => member
-      #   _render_partial options.merge(locals: member_locals)
-      # end
-
-      # Option 3, the fastest, haven't looked into precisely why, but would need
-      # to customeize to the rails version
-      # lookup_context = @context.view_renderer.lookup_context
-      # options[:locals][:json] = self
-      # options[:locals][:collection] = options[:collection]
-      #
-      # pr = ActionView::PartialRenderer.new(lookup_context)
-      # pr.send(:setup, @context, options, as, nil)
-      # path = pr.instance_variable_get(:@path)
-      # a, b, c = pr.send(:retrieve_variable, path, as)
-      # template_keys = pr.send(:retrieve_template_keys, a).compact
-      # # + [:"#{a}__counter", :"#{a}_iteration"]
-      # template = pr.send(:find_partial, path, template_keys)
-      # locals = options[:locals]
-      # array! options[:collection] do |member|
-      #   locals[as] = member
-      #   template.render(@context, locals)
-      # end
-    else
-      @context.render(options)
-    end
-  end
-  
   def _keys_to_collection_map(collection, options)
     key = options.delete(:key)
     

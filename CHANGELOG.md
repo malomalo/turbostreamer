@@ -16,6 +16,22 @@ Unreleased
   emitted a `"null!"` key whose value was an inspected `Object`.
 * Documented that `ActionController::API` silently skips layouts unless
   `ActionView::Layouts` is included.
+* **Breaking:** `partial!` is now `partial!(name, locals: nil, **render_options)`.
+  The partial name is the first argument, template locals go in `locals:`, and
+  every other keyword is passed to Action View as a render option:
+  `json.partial! 'post', locals: { post: @post }`. Previously bare keywords were
+  locals and the name could be given as a `partial:` option.
+
+  Nothing is reserved, so options TurboStreamer does not know about -- `cached:`,
+  `layout:`, whatever Action View adds next -- reach it anyway, and a local may
+  be named `formats` or `object` without being mistaken for an option. Both
+  wrong shapes name the call that was meant.
+  `json.array! @posts, partial: 'post', as: :post` is unaffected.
+* `partial!` no longer writes to anything the caller passed it. `:as` was
+  deleted out of the caller's locals and the builder stored in them, so
+  rendering twice with one hash lost `:as` on the second call and rendered a
+  collection differently. The options hash itself was written to as well,
+  gaining `:handlers` and a `:locals` holding the builder.
 * Fixed injected JSON -- and so `cache!`, which splices cached bytes -- losing
   or misplacing the separator next to a normally-rendered sibling. A cached
   fragment beside a rendered object in an array emitted `[{...}{...}]`, which is
