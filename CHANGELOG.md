@@ -32,6 +32,11 @@ Unreleased
   rendering twice with one hash lost `:as` on the second call and rendered a
   collection differently. The options hash itself was written to as well,
   gaining `:handlers` and a `:locals` holding the builder.
+* Covered the failure mode when a partial exists for another handler but not
+  for `:streamer`. Partial lookup is restricted to `:streamer`, which is what
+  makes that raise `MissingTemplate` instead of rendering the other handler's
+  template -- whose output `partial!` discards, since the builder writes to the
+  stream itself, so the node would simply be absent from the response.
 * Fixed injected JSON -- and so `cache!`, which splices cached bytes -- losing
   or misplacing the separator next to a normally-rendered sibling. A cached
   fragment beside a rendered object in an array emitted `[{...}{...}]`, which is
