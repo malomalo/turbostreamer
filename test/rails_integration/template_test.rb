@@ -217,6 +217,23 @@ class RailsIntegration::TemplateTest < ActionView::TestCase
     end
   end
 
+  test 'a partial that exists only for another handler is missing, not empty' do
+    resolver = ActionView::FixtureResolver.new(
+      '_post.json.erb' => 'SHOULD NOT APPEAR',
+      'test.json.streamer' => "json.partial! 'post'"
+    )
+    # No handlers: here on purpose -- an application's lookup context carries
+    # Action View's real default, every registered handler.
+    lookup = ActionView::LookupContext.new(ActionView::PathSet.new([resolver]), formats: [:json])
+    view = ActionView::Base.with_empty_template_cache.new(lookup, {}, nil)
+    template = ActionView::Template.new("json.partial! 'post'", 'test', TurboStreamer::Handler,
+                                        format: :json, virtual_path: 'test', locals: [])
+
+    error = assert_raises(ActionView::Template::Error) { template.render(view, {}) }
+
+    assert_kind_of ActionView::MissingTemplate, error.cause
+  end
+
   test 'render array of partials' do
     json = render_streamer <<-STREAMER
       json.array! BLOG_POST_COLLECTION, :partial => 'blog_post', :as => :blog_post
