@@ -1,12 +1,14 @@
 require 'test_helper'
 
 class TurboStreamer::OptionsTest < ActiveSupport::TestCase
-  
-  teardown do
-    TurboStreamer.class_variable_set(:@@default_encoders, {})
-    TurboStreamer.class_variable_set(:@@encoder_options, Hash.new { |h, k| h[k] = {} })
+
+  test 'the suite runs on the encoder TSENCODER asked for' do
+    skip 'TSENCODER is not set' unless ENV['TSENCODER']
+
+    assert_equal ENV['TSENCODER'].to_sym,
+      TurboStreamer.encoder_symbol_for(:json, TurboStreamer.default_encoder_for(:json))
   end
-  
+
   test 'setting default options' do
     TurboStreamer.set_default_encoder(:json, :oj)
     TurboStreamer.set_default_encoder_options(:oj, {buffer_size: 2_048})
