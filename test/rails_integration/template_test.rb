@@ -691,13 +691,16 @@ class RailsIntegration::TemplateTest < ActionView::TestCase
     TurboStreamer::Railtie.initializers.each(&:run)
     ActiveSupport.run_load_hooks(:action_view)
     
+    original_precision = ActiveSupport::JSON::Encoding.time_precision
     ActiveSupport::JSON::Encoding.time_precision = 6
-    
+
     result = jbuild do |json|
       json.object! { json.timestamp Time.utc(2001, 9, 9, 1, 46, 40, 500500) }
     end
-    
+
     assert_equal({"timestamp"=>"2001-09-09T01:46:40.500500Z"}, result)
+  ensure
+    ActiveSupport::JSON::Encoding.time_precision = original_precision
   end
 
 end
