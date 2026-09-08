@@ -37,6 +37,20 @@ Unreleased
   makes that raise `MissingTemplate` instead of rendering the other handler's
   template -- whose output `partial!` discards, since the builder writes to the
   stream itself, so the node would simply be absent from the response.
+* Fixed the separator around injected JSON -- and so around `cache!`, which
+  splices cached bytes -- in both encoders. A cached fragment beside a
+  normally-rendered sibling in an array emitted `[{...}{...}]`, which is not
+  valid JSON. On the Wankel encoder two cases were silent rather than loud:
+  `[1,2]` came back as `[12]`, valid JSON carrying the wrong value. Both
+  encoders now track whether an open container already holds something, and
+  the Oj encoder hands array fragments to `Oj::StreamWriter#push_json` so the
+  writer places the delimiter itself.
+* Tests no longer leak TurboStreamer's class-level configuration into each
+  other. `rake test:wankel` could silently run most of the suite on Oj: setting
+  the default encoder to `:oj` loads Oj, and a teardown that blanked the
+  defaults left `default_encoder_for` falling through to the first loaded
+  encoder. Whether it happened depended on the random seed, so a green run did
+  not mean the Wankel encoder had been exercised.
 
 2.0.0
 -----
