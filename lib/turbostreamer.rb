@@ -8,6 +8,7 @@ class TurboStreamer
   autoload :Template, 'turbostreamer/template'
   autoload :KeyFormatter, 'turbostreamer/key_formatter'
   autoload :Errors, 'turbostreamer/errors'
+  autoload :MissingValueError, 'turbostreamer/errors'
 
   BLANK = ::Object.new
 
@@ -181,7 +182,7 @@ class TurboStreamer
     elsif args.empty?
       # json.age 32
       # { "age": 32 }
-      raise Errors::MissingValueError.build(key) if _blank?(value)
+      raise MissingValueError.build(key) if _blank?(value)
       @encoder.value(value)
     elsif _eachable_arguments?(value, *args)
       # json.comments @post.comments, :content, :created_at
@@ -374,7 +375,7 @@ class TurboStreamer
         _scope(&block)
       end
     elsif args.empty?
-      raise Errors::MissingValueError.build(nil) if _blank?(value)
+      raise MissingValueError.build('child!') if _blank?(value)
       value!(value)
     elsif _eachable_arguments?(value, *args)
       _scope{ array!(value, *args) }

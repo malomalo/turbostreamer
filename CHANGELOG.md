@@ -52,13 +52,13 @@ Unreleased
   encoder. Whether it happened depended on the random seed, so a green run did
   not mean the Wankel encoder had been exercised.
 * A key given no value, block or attributes -- `json.foo` on its own -- now
-  raises `Errors::MissingValueError` naming the key. It used to reach the
+  raises `MissingValueError` naming the key. It used to reach the
   encoder holding the BLANK sentinel, which Oj wrote out as the inspected
   `Object`, memory address included.
 * The Wankel encoder refuses the same malformed shapes Oj's writer already
   refused, rather than writing broken JSON: a key inside an array (`["a",1]`
-  from `merge!`-ing a Hash into an array) and a key never given a value
-  (`{"a"}`).
+  from `merge!`-ing a Hash into an array), a key never given a value (`{"a"}`)
+  and a value written without a key (`{"1"}`).
 * Encoder options configured for an encoder now apply whether it is named by
   symbol or by class. `encoder: TurboStreamer::OjEncoder` found no options and
   silently dropped whatever was set for `:oj` -- including the railtie's

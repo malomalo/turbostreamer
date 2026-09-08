@@ -10,6 +10,7 @@ class TurboStreamer
       @populated = []
       @awaiting_value = false
       @yajl_consumed_value = false
+      @writing_value = false
 
       super(io, {mode: :as_json}.merge(options))
     end
@@ -31,11 +32,18 @@ class TurboStreamer
     end
 
     def value(v)
+      if @stack.last == :map && !@awaiting_value && !@writing_value
+        raise ::TurboStreamer::Errors::StructureError.build('a value without a key', @stack.last)
+      end
+
       # @stack only ever holds :map or :array, so this is just depth > 0.
       @populated[-1] = true unless @stack.empty?
       @awaiting_value = false
+      @writing_value = true
 
       super
+    ensure
+      @writing_value = false
     end
 
     def map_open
