@@ -18,6 +18,10 @@ class TurboStreamer
       @output = io
       @stream_writer = ::Oj::StreamWriter.new(io, @options)
       @pending_comma = false
+      # Whether a key has been written and is still owed its value. Oj's
+      # writer knows but will not say, and inject has to know: in value
+      # position a fragment can go through push_json, which places the colon.
+      @awaiting_value = false
     end
 
     def key(k)
@@ -27,6 +31,7 @@ class TurboStreamer
         
       end
       @pending_comma = false
+      @awaiting_value = true
       @stream_writer.push_key(k)
     end
 
@@ -43,6 +48,7 @@ class TurboStreamer
       end
       
       @pending_comma = false
+      @awaiting_value = false
       @stream_writer.push_value(v)
     end
 
@@ -55,6 +61,7 @@ class TurboStreamer
         @pending_comma = false
       end
       
+      @awaiting_value = false
       @stack << :map
       @populated << false
       @stream_writer.push_object
@@ -72,6 +79,7 @@ class TurboStreamer
     end
 
     def array_open
+      @awaiting_value = false
       @stack << :array
       @populated << false
 
@@ -97,6 +105,14 @@ class TurboStreamer
     def inject(string)
       string = string.delete_prefix(',').delete_suffix(",")
 
+      # A key is written and its value is what is being injected. push_json
+      # places it, colon included, and counts it -- so no bookkeeping applies.
+      if @awaiting_value
+        @stream_writer.push_json(string)
+        @awaiting_value = false
+        return
+      end
+
       # In an array Oj can place the fragment itself -- delimiter and element
       # count included -- so none of the bookkeeping below applies.
       if @stack.last == :array
@@ -117,28 +133,22 @@ class TurboStreamer
       # is no container at all. push_json can place neither, so those bytes go
       # to the output directly and the delimiter is ours to track.
       #
-      # TODO: route this through push_json too, and delete the tracking.
+      # TODO: the pair-sequence path is the last thing bypassing the writer.
       #
-      # Blocked on `cache!` in an object caching a pair sequence
-      # (`"a":1,"b":2`). push_json needs a key there -- unkeyed it raises "Can
-      # not push onto an Object without a key", keyed it silently emits
-      # `{"k":"a":1,"b":2}`. Requiring `cache!` to wrap a single value instead
-      # (`json.person { json.cache!(k) { json.object! { ... } } }`) makes
-      # push_key + push_json work, and then nothing bypasses the writer:
+      # A value under a key now goes through push_json (above). What is left is
+      # `cache!` covering several pairs at once -- push_json needs a key in
+      # object context, and a pair sequence is not a value, so these bytes still
+      # go straight out and the delimiter stays ours to place. Requiring
+      # `cache!` to wrap a single value would remove the last of it, and with it
       # @populated, @pending_comma, the comma branches in key/value/map_open/
-      # array_open, the tails on both closes and every flush but the public one
-      # all go -- 43 lines, and the source of every delimiter bug here.
+      # array_open, the tails on both closes and every flush but the public one.
       #
       # Worth +15% on documents with no caching at all, since the cost is the
-      # per-element bookkeeping rather than the injecting. Measured -3% on the
-      # map-fragment shape itself, so this is a simplification rather than a
-      # speed-up where it applies.
-      #
-      # The price is group caching: one fragment covering several keys that stay
-      # at the same level as live keys has no equivalent afterwards. jbuilder
-      # allows that form but caches a Marshal'd Hash to do it; props_template
-      # forbids it for this exact reason. Breaking change either way -- it
-      # inverts the caveat documented in the README.
+      # per-element bookkeeping rather than the injecting, and roughly nothing
+      # on the pair-sequence shape itself. The price is group caching: one
+      # fragment covering several keys that stay at the same level as live keys
+      # would have no equivalent. jbuilder allows that form but caches a
+      # Marshal'd Hash to do it; props_template forbids it for this reason.
       @stream_writer.flush
 
       if @stack.last && @populated.last
@@ -156,17 +166,26 @@ class TurboStreamer
 
       old_writer = @stream_writer
       old_output = @output
+      # A capture is a nested document: a map_open inside the block would
+      # otherwise clear the outer key's pending value, and inject would not
+      # know it can use push_json.
+      old_awaiting = @awaiting_value
       @populated << false
 
       @output = (to || ::StringIO.new)
       @stream_writer = ::Oj::StreamWriter.new(@output, @options)
 
-      # This is to prevent error from OJ streamer
-      # We will strip the brackets afterward
-      if @stack.last == :map
-        @stream_writer.push_object
-      elsif @stack.last == :array
-        @stream_writer.push_array
+      # A value is captured whole, so it needs no enclosing container. The
+      # dummy below exists only for a fragment of map pairs, which is not a
+      # value and cannot stand alone.
+      unless old_awaiting
+        # This is to prevent error from OJ streamer
+        # We will strip the brackets afterward
+        if @stack.last == :map
+          @stream_writer.push_object
+        elsif @stack.last == :array
+          @stream_writer.push_array
+        end
       end
 
       yield
@@ -178,8 +197,10 @@ class TurboStreamer
       result.delete_prefix!(',')
       result.delete_suffix!(",")
 
-      # Strip brackets as promised above
-      if @stack.last == :map
+      # Strip brackets as promised above -- only if one was pushed
+      if old_awaiting
+        # nothing to strip: the capture is the value itself
+      elsif @stack.last == :map
         result.delete_prefix!('{')
         result.delete_suffix!("}")
       elsif @stack.last == :array
@@ -194,6 +215,7 @@ class TurboStreamer
       result
     ensure
       @populated.pop
+      @awaiting_value = old_awaiting
       @stream_writer = old_writer
       @output = old_output
     end

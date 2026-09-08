@@ -9,6 +9,7 @@ class TurboStreamer
       @stack = []
       @populated = []
       @awaiting_value = false
+      @yajl_consumed_value = false
 
       super(io, {mode: :as_json}.merge(options))
     end
@@ -72,6 +73,25 @@ class TurboStreamer
     def inject(string)
       flush
 
+      # A key is written and its value is what is being injected: the colon is
+      # ours, since these bytes never reach yajl.
+      if @awaiting_value
+        self.output.write(':'.freeze)
+        # yajl only needs walking past the value if the capture below did not
+        # already do it. On a cache hit no capture ran.
+        capture { string("".freeze) } unless @yajl_consumed_value
+        @yajl_consumed_value = false
+        @awaiting_value = false
+        return self.output.write(string)
+      end
+
+      # Otherwise these are pairs joining an open map, or elements joining an
+      # open array. yajl neither delimits them nor counts them, and it only has
+      # to be pushed past empty once per container: after that its count is
+      # non-zero, so it delimits its own elements and the separator before an
+      # injected one is ours. Walking it through an element -- one value for an
+      # array, a key and a value for a map -- into a buffer that is thrown away
+      # is what advances it.
       case @stack.last
       when :array
         if @populated.last
@@ -95,6 +115,10 @@ class TurboStreamer
     def capture(to=nil)
       flush
       old_output = self.output
+      # @awaiting_value describes the document, but a capture is a nested one:
+      # a map_open inside the block would otherwise clear the outer key's
+      # pending value and inject would not know the colon is still owed.
+      old_awaiting = @awaiting_value
       to = to || ::StringIO.new
       @populated << false
       self.output = to
@@ -102,9 +126,16 @@ class TurboStreamer
       yield
 
       flush
-      to.string.delete_prefix(',').delete_suffix(",")
+      # Entered awaiting a value and the block supplied one, so yajl has
+      # already advanced past it -- into `to`, which is discarded.
+      @yajl_consumed_value = old_awaiting && !@awaiting_value
+      # The leading colon is yajl's, emitted because the handle is shared. It
+      # belongs to the position, not to the fragment, so a cached fragment must
+      # not carry it.
+      to.string.delete_prefix(':').delete_prefix(',').delete_suffix(",")
     ensure
       @populated.pop
+      @awaiting_value = old_awaiting
       self.output = old_output
     end
 

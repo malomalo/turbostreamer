@@ -1,22 +1,22 @@
 require 'test_helper'
 
-# Where `cache!` sits relative to a key changes what gets cached, and the two
-# encoders do not agree about which arrangements are legal. These tests record
-# what actually happens rather than what ought to -- including one arrangement
-# that succeeds on a cache miss and raises on a hit, which is a bug rather than
-# a decision.
+# Where `cache!` sits relative to a key, and what ends up in the cache.
 #
-# The root of it: in map context a cached fragment is a *pair sequence*
-# (`"a":1`), not a value. `cache!` is documented as having to cover the key and
-# the value together for that reason.
+# In map context a cached fragment used to have to be a *pair sequence*
+# (`"a":1`), because injected bytes went around the encoder and the colon a key
+# needs was never written. `cache!` under a key therefore failed. It now works:
+# `inject` recognises value position and lets the writer place the fragment,
+# which means the cached bytes are a bare value and carry no position with them.
 #
-# Every test logs the template it renders, what came out, and what landed in
-# the cache. Run one encoder at a time:
+# Both encoders agree on every arrangement here, and cache the same bytes, so
+# nothing below is encoder-specific.
+#
+# Every test logs the template, the result and the cache. Run one encoder:
 #
 #   bundle exec rake test:oj     test/turbo_streamer/cache_shape_test.rb
 #   bundle exec rake test:wankel test/turbo_streamer/cache_shape_test.rb
 #
-# Set QUIET=1 to silence the logging (worth doing for a full-suite run).
+# QUIET=1 silences the logging, worth setting for a full-suite run.
 
 # Defined here rather than relying on template_test.rb's copy, so this file
 # runs on its own.
@@ -53,104 +53,122 @@ class TurboStreamer::CacheShapeTest < ActiveSupport::TestCase
     TurboStreamer.encoder_symbol_for(:json, TurboStreamer.default_encoder_for(:json))
   end
 
-  def cached_fragments
-    Rails.cache.instance_variable_get(:@data).to_h { |k, e| [k, (e.value rescue e)] }
+  def fragments
+    Rails.cache.instance_variable_get(:@data).values.map { |e| e.value rescue e }
   end
 
-  # Renders, logging the template, the result and the cache. Returns
-  # [output_or_nil, error_or_nil].
-  def render_cached(template, label: 'render', &block)
+  def render(template, label: 'render', &block)
     log "   template: #{template}"
     out = TurboStreamer::Template.new(FakeContext.new, &block).target!.strip
-    log "   #{label}: #{out}"
-    log "   cached:   #{cached_fragments.inspect}"
-    [out, nil]
-  rescue StandardError => e
-    log "   #{label}: RAISED #{e.class} -- #{e.message.lines.first.strip}"
-    log "   cached:   #{cached_fragments.inspect}"
-    [nil, e]
+    log "   #{label}:#{' ' * (6 - label.length)} #{out}"
+    log "   cached:   #{fragments.inspect}"
+    out
   end
 
-  # --- the documented form: cache! covers the key and the value -------------
+  # --- pair sequences: cache! covering the key and its value ----------------
 
-  DOCUMENTED = "json.object! { json.cache!('k') { json.a 1 } }"
-
-  test 'the documented form caches a pair sequence, and replays it on a hit' do
-    out, error = render_cached(DOCUMENTED, label: 'miss') { |json| json.object! { json.cache!('k') { json.a 1 } } }
-    assert_nil error
+  test 'cache! over a key and its value caches a pair sequence' do
+    t = "json.object! { json.cache!('k') { json.a 1 } }"
+    out = render(t, label: 'miss') { |json| json.object! { json.cache!('k') { json.a 1 } } }
     assert_equal({'a' => 1}, JSON.parse(out))
-    assert_equal ['"a":1'], cached_fragments.values, 'the key is part of the cached bytes'
+    assert_equal ['"a":1'], fragments, 'the key is part of the cached bytes'
 
-    # Same key, different body: the cached bytes must win.
-    out, error = render_cached(DOCUMENTED.sub('1 }', '999 }'), label: 'hit') do |json|
-      json.object! { json.cache!('k') { json.a 999 } }
-    end
-    assert_nil error
+    out = render(t.sub('1 }', '999 }'), label: 'hit') { |json| json.object! { json.cache!('k') { json.a 999 } } }
     assert_equal({'a' => 1}, JSON.parse(out), 'the hit replayed the cached fragment')
   end
 
-  # --- cache! under a key ---------------------------------------------------
+  # --- values: cache! under a key -------------------------------------------
 
   UNDER_KEY = "json.object! { json.author { json.cache!('k') { json.object! { json.a 1 } } } }"
 
-  def render_under_key(label)
-    render_cached(UNDER_KEY, label: label) do |json|
+  def under_key(label)
+    render(UNDER_KEY, label: label) do |json|
       json.object! { json.author { json.cache!('k') { json.object! { json.a 1 } } } }
     end
   end
 
-  test 'cache! under a key is refused by the Oj encoder, on miss and on hit' do
-    skip "running #{encoder}" unless encoder == :oj
-
-    _, miss_error = render_under_key('miss')
-    _, hit_error  = render_under_key('hit')
-
-    assert_kind_of StandardError, miss_error
-    assert_kind_of StandardError, hit_error, 'consistent: refused either way'
-  end
-
-  # BUG, not a decision. On a miss `cache!` runs the block, whose `json.object!`
-  # calls map_open, which clears @awaiting_value -- so map_close is satisfied.
-  # On a hit the block never runs, `inject` does not clear the flag, and
-  # map_close raises. In an app that means the first request after a deploy
-  # succeeds and every later one fails.
-  test 'cache! under a key succeeds on a miss but raises on a hit -- Wankel' do
-    skip "running #{encoder}" unless encoder == :wankel
-
-    out, miss_error = render_under_key('miss')
-    assert_nil miss_error, 'the miss path succeeds'
+  test 'cache! under a key caches a bare value, and the fragment carries no colon' do
+    out = under_key('miss')
     assert_equal({'author' => {'a' => 1}}, JSON.parse(out))
-    assert_equal [':{"a":1}'], cached_fragments.values,
-      'and caches the colon, so the fragment is only valid in this exact position'
+    assert_equal ['{"a":1}'], fragments,
+      'a value, not a pair sequence, and no leading colon -- so it is not tied to this position'
 
-    _, hit_error = render_under_key('hit')
-    refute_nil hit_error, 'but the hit path raises -- this is the bug'
-    assert_kind_of TurboStreamer::Errors::StructureError, hit_error
+    out = under_key('hit')
+    assert_equal({'author' => {'a' => 1}}, JSON.parse(out), 'the hit path agrees with the miss path')
   end
 
-  # A pre-seeded fragment cannot rescue the hit path either, whatever shape it
-  # has -- the guard fires before the bytes are ever placed.
-  test 'no cached fragment shape makes the hit path work -- Wankel' do
-    skip "running #{encoder}" unless encoder == :wankel
+  # The double advance that broke this lived here: on a miss the capture had
+  # already walked the writer past the value, so injecting advanced it a second
+  # time and the *next* key was consumed as the phantom value. Nothing failed
+  # until a sibling followed.
+  test 'a sibling key after a cached one, on both miss and hit' do
+    t = "json.object! { json.author { json.cache!('k') { json.object! { json.a 1 } } }; json.z 2 }"
+    body = ->(json) { json.object! { json.author { json.cache!('k') { json.object! { json.a 1 } } }; json.z 2 } }
 
+    assert_equal({'author' => {'a' => 1}, 'z' => 2}, JSON.parse(render(t, label: 'miss', &body)))
+    assert_equal({'author' => {'a' => 1}, 'z' => 2}, JSON.parse(render(t, label: 'hit', &body)))
+  end
+
+  test 'two cached keys side by side' do
+    t = "json.object! { json.a1 { json.cache!('k1') { json.object! { json.a 1 } } }; json.a2 { json.cache!('k2') { json.object! { json.b 2 } } } }"
+    body = ->(json) do
+      json.object! do
+        json.a1 { json.cache!('k1') { json.object! { json.a 1 } } }
+        json.a2 { json.cache!('k2') { json.object! { json.b 2 } } }
+      end
+    end
+
+    assert_equal({'a1' => {'a' => 1}, 'a2' => {'b' => 2}}, JSON.parse(render(t, label: 'miss', &body)))
+    assert_equal ['{"a":1}', '{"b":2}'], fragments.sort
+    assert_equal({'a1' => {'a' => 1}, 'a2' => {'b' => 2}}, JSON.parse(render(t, label: 'hit', &body)))
+  end
+
+  test 'a cached scalar under a key' do
+    t = "json.object! { json.n { json.cache!('k') { json.value! 42 } } }"
+    body = ->(json) { json.object! { json.n { json.cache!('k') { json.value! 42 } } } }
+
+    assert_equal({'n' => 42}, JSON.parse(render(t, label: 'miss', &body)))
+    assert_equal ['42'], fragments
+    assert_equal({'n' => 42}, JSON.parse(render(t, label: 'hit', &body)))
+  end
+
+  test 'cache! nested inside a cached value' do
+    t = "json.object! { json.o { json.cache!('k') { json.object! { json.inner { json.cache!('k2') { json.object! { json.a 1 } } } } } } }"
+    body = ->(json) do
+      json.object! { json.o { json.cache!('k') { json.object! { json.inner { json.cache!('k2') { json.object! { json.a 1 } } } } } } }
+    end
+
+    assert_equal({'o' => {'inner' => {'a' => 1}}}, JSON.parse(render(t, label: 'miss', &body)))
+    assert_equal({'o' => {'inner' => {'a' => 1}}}, JSON.parse(render(t, label: 'hit', &body)))
+  end
+
+  # --- inject! directly -----------------------------------------------------
+
+  test 'inject! supplies a value under a key' do
+    t = %q{json.object! { json.author { json.inject!('{"a":1}') }; json.z 2 }}
+    out = render(t) { |json| json.object! { json.author { json.inject!('{"a":1}') }; json.z 2 } }
+
+    assert_equal({'author' => {'a' => 1}, 'z' => 2}, JSON.parse(out)
+    )
+  end
+
+  test 'inject! still supplies pairs to an open map' do
+    t = %q{json.object! { json.inject!('"a":1'); json.z 2 }}
+    out = render(t) { |json| json.object! { json.inject!('"a":1'); json.z 2 } }
+
+    assert_equal({'a' => 1, 'z' => 2}, JSON.parse(out))
+  end
+
+  # --- fragments are portable between encoders ------------------------------
+
+  test 'a fragment cached under a key replays without its position' do
     key = ActiveSupport::Cache.expand_cache_key('k', :streamer)
-    [':{"a":1}', '{"a":1}', '"a":1'].each do |fragment|
-      Rails.cache.clear
-      Rails.cache.write(key, fragment)
-      log "   seeded:   #{fragment.inspect}"
-      _, error = render_under_key('hit')
-      refute_nil error, "#{fragment.inspect} still raises"
-    end
-  end
+    Rails.cache.write(key, '{"a":1}')
+    log "   seeded:   #{'{"a":1}'.inspect}"
 
-  # --- inject! under a key: refused by both --------------------------------
-
-  test 'inject! under a key is refused by both encoders' do
-    _, error = render_cached(%q{json.object! { json.author { json.inject!('{"a":1}') } }}) do |json|
-      json.object! { json.author { json.inject!('{"a":1}') } }
-    end
-
-    refute_nil error, 'the bytes go around the encoder, so the key never gets its colon'
+    out = under_key('hit')
+    assert_equal({'author' => {'a' => 1}}, JSON.parse(out),
+      'a bare value works wherever a value is expected, whichever encoder wrote it')
   end
 
 end

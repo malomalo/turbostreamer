@@ -66,6 +66,17 @@ Unreleased
 * `has_default_encoder_options?` no longer reports true for an encoder merely
   because something was rendered with it. Building a builder read through the
   options Hash's default proc, which assigns as it reads.
+* `cache!` now works under a key, caching that key's value:
+  `json.author { json.cache!('k') { json.object! { ... } } }`. It used to raise
+  on Oj and emit `{"author"{"a":1}}` on Wankel, because injected bytes go around
+  the writer and the colon a key needs was never written. `inject` now
+  recognises value position and lets the writer place the fragment.
+
+  The cached bytes differ between the two forms, and usefully so. Over a key
+  (`cache!` wrapping the key and its value) the fragment is a sequence of pairs
+  and can cover several keys at once. Under a key it is a bare value, which
+  carries no position -- so it replays anywhere a value belongs, and both
+  encoders now write and read identical fragments.
 
 2.0.0
 -----
