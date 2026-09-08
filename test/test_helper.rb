@@ -44,6 +44,32 @@ end
 
 class ActiveSupport::TestCase
 
+  # Several tests reach into TurboStreamer's class-level configuration:
+  # options_test replaces the encoder defaults wholesale, the timestamp test
+  # re-runs the railtie to simulate boot, and the key formatter tests set the
+  # global formatter. None of it was restored, so what ran earlier decided what
+  # later tests were configured with.
+  #
+  # That made `rake test:wankel` untrustworthy rather than merely untidy.
+  # Setting the default encoder to :oj loads Oj as a side effect, and blanking
+  # @@default_encoders afterwards leaves default_encoder_for falling through to
+  # the first *loaded* encoder -- Oj, since it comes first in the registry. So
+  # every test after that one silently ran on Oj no matter what TSENCODER said,
+  # and whether it happened at all depended on the random seed.
+  #
+  # Snapshot and restore around every test instead, so order cannot matter.
+  setup do
+    @__default_encoders = TurboStreamer.class_variable_get(:@@default_encoders).dup
+    @__encoder_options  = TurboStreamer.class_variable_get(:@@encoder_options).dup
+    @__key_formatter    = TurboStreamer.class_variable_get(:@@key_formatter)
+  end
+
+  teardown do
+    TurboStreamer.class_variable_set(:@@default_encoders, @__default_encoders)
+    TurboStreamer.class_variable_set(:@@encoder_options, @__encoder_options)
+    TurboStreamer.class_variable_set(:@@key_formatter, @__key_formatter)
+  end
+
   def jbuild(*args, &block)
     ::JSON.parse(TurboStreamer.encode(*args, &block))
   end

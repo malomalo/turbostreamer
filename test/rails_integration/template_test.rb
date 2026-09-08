@@ -46,7 +46,12 @@ class RailsIntegration::TemplateTest < ActionView::TestCase
     {
       '_partial.json.streamer'  => PARTIAL_TEMPLATE,
       '_blog_post.json.streamer' => BLOG_POST_TEMPLATE,
-      '_collection.json.streamer' => COLLECTION_TEMPLATE
+      '_collection.json.streamer' => COLLECTION_TEMPLATE,
+      '_localized.json.streamer' => "json.object! { json.set!(:said, 'hello') }",
+      '_localized.de.json.streamer' => "json.object! { json.set!(:said, 'hallo') }",
+      '_varied.json.streamer' => "json.object! { json.set!(:layout, 'list') }",
+      '_varied.json+grid.streamer' => "json.object! { json.set!(:layout, 'grid') }",
+      '_named_like_options.json.streamer' => "json.object! { json.a formats; json.b object; json.c collection }"
     }
   end
   
@@ -139,20 +144,94 @@ class RailsIntegration::TemplateTest < ActionView::TestCase
     assert_equal '[]', json
   end
 
-  test 'partial! renders collection (alt. syntax)' do
-    json = render_streamer <<-STREAMER
-      json.partial! :partial => 'blog_post', :collection => BLOG_POST_COLLECTION, :as => :blog_post
-    STREAMER
+  # Action View's own lookup options are named parameters, because with the
+  # partial name taken as the first argument every other keyword is a local --
+  # `locale: :de` would otherwise set a local called locale rather than pick the
+  # German template.
 
-    assert_collection_rendered json
+  # :handlers is the one option a caller cannot set. Everything else is theirs,
+  # but this decides whether the partial is rendered by the handler that knows
+  # about the builder -- an ERB partial has none, renders to a string that is
+  # discarded, and the node silently disappears.
+  test 'handlers: cannot be overridden per call' do
+    resolver = ActionView::FixtureResolver.new(
+      '_both.json.erb' => 'SHOULD NOT APPEAR',
+      '_both.json.streamer' => 'json.object! { json.set!(:a, 1) }',
+      'test.json.streamer' => ''
+    )
+    lookup = ActionView::LookupContext.new(ActionView::PathSet.new([resolver]), formats: [:json])
+    view = ActionView::Base.with_empty_template_cache.new(lookup, {}, nil)
+    source = "json.partial! 'both', handlers: [:erb]"
+    template = ActionView::Template.new(source, 'test', TurboStreamer::Handler,
+                                        format: :json, virtual_path: 'test', locals: [])
+
+    assert_equal({'a' => 1}, JSON.load(template.render(view, {}).strip))
   end
 
-  test 'partial! renders as empty array for nil-collection (alt. syntax)' do
-    json = render_streamer <<-STREAMER
-      json.partial! :partial => 'blog_post', :collection => nil, :as => :blog_post
+  # Nothing is reserved: an option TurboStreamer has never heard of still
+  # reaches Action View, and a local may be named after one without being
+  # mistaken for it.
+  test 'a local may be named like a render option' do
+    json = render_streamer("json.partial! 'named_like_options', locals: { formats: 1, object: 2, collection: 3 }")
+
+    assert_equal({'a' => 1, 'b' => 2, 'c' => 3}, JSON.load(json))
+  end
+
+  test 'an option turbostreamer does not name still reaches Action View' do
+    # :cached is nothing to do with turbostreamer's own cache!; it is Action
+    # View's, and it is passed through without being enumerated.
+    json = render_streamer("json.partial! 'partial', cached: false")
+
+    refute_empty json
+  end
+
+  test 'locale: selects the localized partial' do
+    assert_equal({'said' => 'hello'}, JSON.load(render_streamer("json.partial! 'localized'")))
+    assert_equal({'said' => 'hallo'}, JSON.load(render_streamer("json.partial! 'localized', locale: :de")))
+  end
+
+  test 'variants: selects the variant partial' do
+    assert_equal({'layout' => 'list'}, JSON.load(render_streamer("json.partial! 'varied'")))
+    assert_equal({'layout' => 'grid'}, JSON.load(render_streamer("json.partial! 'varied', variants: :grid")))
+  end
+
+  test 'formats: is passed to the lookup rather than becoming a local' do
+    json = render_streamer("json.partial! 'localized', formats: [:json]")
+
+    assert_equal({'said' => 'hello'}, JSON.load(json))
+  end
+
+  test 'lookup options do not leak into the partial as locals' do
+    json = render_streamer(<<-STREAMER)
+      json.partial! 'partial', locale: :en, variants: :grid, formats: [:json]
     STREAMER
 
-    assert_equal '[]', json
+    # _partial renders its own locals; a leaked :locale would show up there.
+    refute_match 'locale', json
+    refute_match 'variants', json
+  end
+
+  test 'partial! with no arguments at all says where the name goes' do
+    error = assert_raises(ActionView::Template::Error) do
+      render_streamer("json.partial!")
+    end
+  end
+
+  test 'a partial that exists only for another handler is missing, not empty' do
+    resolver = ActionView::FixtureResolver.new(
+      '_post.json.erb' => 'SHOULD NOT APPEAR',
+      'test.json.streamer' => "json.partial! 'post'"
+    )
+    # No handlers: here on purpose -- an application's lookup context carries
+    # Action View's real default, every registered handler.
+    lookup = ActionView::LookupContext.new(ActionView::PathSet.new([resolver]), formats: [:json])
+    view = ActionView::Base.with_empty_template_cache.new(lookup, {}, nil)
+    template = ActionView::Template.new("json.partial! 'post'", 'test', TurboStreamer::Handler,
+                                        format: :json, virtual_path: 'test', locals: [])
+
+    error = assert_raises(ActionView::Template::Error) { template.render(view, {}) }
+
+    assert_kind_of ActionView::MissingTemplate, error.cause
   end
 
   test 'render array of partials' do
@@ -161,6 +240,74 @@ class RailsIntegration::TemplateTest < ActionView::TestCase
     STREAMER
 
     assert_collection_rendered json
+  end
+
+  # The keyword rest is built fresh on every call, so a hash splatted into
+  # partial! is never written to. Compare the positional form below, which is
+  # no longer accepted.
+  test 'partial! leaves a splatted options hash alone' do
+    json = render_streamer <<-STREAMER
+      opts = { as: :blog_post, collection: BLOG_POST_COLLECTION }
+      json.array! do
+        json.child! { json.object! { json.set!(:first, opts.key?(:as)) } }
+        json.partial! 'blog_post', **opts
+        json.child! { json.object! { json.set!(:still_there, opts.key?(:as)) } }
+        json.child! { json.object! { json.set!(:no_builder, !opts.key?(:json)) } }
+      end
+    STREAMER
+
+    parsed = JSON.load(json)
+    assert_equal true, parsed.first['first']
+    assert_equal true, parsed[-2]['still_there'], ':as was deleted from the caller\'s hash'
+    assert_equal true, parsed[-1]['no_builder'], 'the builder leaked into the caller\'s hash'
+  end
+
+  test 'the same splatted options hash renders the same collection twice' do
+    json = render_streamer <<-STREAMER
+      opts = { as: :blog_post, collection: BLOG_POST_COLLECTION }
+      json.object! do
+        json.a { json.partial! 'blog_post', **opts }
+        json.b { json.partial! 'blog_post', **opts }
+      end
+    STREAMER
+
+    parsed = JSON.load(json)
+    assert_equal parsed['a'], parsed['b']
+    assert_equal BLOG_POST_COLLECTION.size, parsed['a'].size
+  end
+
+  # array! splats into partial!, so a hash handed to it is copied on the way
+  # through and comes back as it went in.
+  test 'array! leaves an options hash it was given alone' do
+    json = render_streamer <<-STREAMER
+      opts = { partial: 'blog_post', as: :blog_post }
+      before = opts.keys.sort.map(&:to_s)
+      json.object! do
+        json.a { json.array! BLOG_POST_COLLECTION, opts }
+        json.before before
+        json.after opts.keys.sort.map(&:to_s)
+        json.leaked opts.key?(:json) || (opts[:locals] || {}).key?(:json)
+      end
+    STREAMER
+
+    parsed = JSON.load(json)
+    assert_equal BLOG_POST_COLLECTION.size, parsed['a'].size
+    assert_equal parsed['before'], parsed['after'], 'the options hash gained keys'
+    assert_equal false, parsed['leaked'], 'the builder leaked into the caller\'s hash'
+  end
+
+  # The options hash forms still hand us the caller's locals, so those are
+  # copied rather than written into.
+  test 'partial! leaves the locals of an options hash alone' do
+    json = render_streamer <<-STREAMER
+      shared = { blog_post: BLOG_POST_COLLECTION.first }
+      json.object! do
+        json.a { json.partial! 'blog_post', locals: shared }
+        json.leaked shared.key?(:json)
+      end
+    STREAMER
+
+    assert_equal false, JSON.load(json)['leaked']
   end
 
   test 'render array of partials as empty array with nil-collection' do
@@ -483,7 +630,7 @@ class RailsIntegration::TemplateTest < ActionView::TestCase
 
     json = render_streamer <<-STREAMER
       json.cache_collection! BLOG_POST_COLLECTION do |blog_post|
-        json.partial! 'blog_post', :blog_post => blog_post
+        json.partial! 'blog_post', locals: { blog_post: blog_post }
       end
     STREAMER
 
@@ -498,7 +645,7 @@ class RailsIntegration::TemplateTest < ActionView::TestCase
 
     json = render_streamer <<-STREAMER
       json.cache_collection! BLOG_POST_COLLECTION, key: CACHE_KEY_PROC do |blog_post|
-        json.partial! 'blog_post', :blog_post => blog_post
+        json.partial! 'blog_post', locals: { blog_post: blog_post }
       end
     STREAMER
 
@@ -510,7 +657,7 @@ class RailsIntegration::TemplateTest < ActionView::TestCase
 
     json = render_streamer <<-STREAMER
       json.cache_collection! BLOG_POST_COLLECTION do |blog_post|
-        json.partial! 'blog_post', :blog_post => blog_post
+        json.partial! 'blog_post', locals: { blog_post: blog_post }
       end
     STREAMER
 
@@ -528,7 +675,7 @@ class RailsIntegration::TemplateTest < ActionView::TestCase
         json.one 2
         json.set! 'key' do
           json.cache_collection! BLOG_POST_COLLECTION, key: CACHE_KEY_PROC do |blog_post|
-            json.partial! 'blog_post', :blog_post => blog_post
+            json.partial! 'blog_post', locals: { blog_post: blog_post }
           end
         end
       end
@@ -544,13 +691,16 @@ class RailsIntegration::TemplateTest < ActionView::TestCase
     TurboStreamer::Railtie.initializers.each(&:run)
     ActiveSupport.run_load_hooks(:action_view)
     
+    original_precision = ActiveSupport::JSON::Encoding.time_precision
     ActiveSupport::JSON::Encoding.time_precision = 6
-    
+
     result = jbuild do |json|
       json.object! { json.timestamp Time.utc(2001, 9, 9, 1, 46, 40, 500500) }
     end
-    
+
     assert_equal({"timestamp"=>"2001-09-09T01:46:40.500500Z"}, result)
+  ensure
+    ActiveSupport::JSON::Encoding.time_precision = original_precision
   end
 
 end

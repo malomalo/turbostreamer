@@ -7,7 +7,7 @@ class TurboStreamer
 
     def initialize(io, options={})
       @stack = []
-      @indexes = []
+      @populated = []
       @awaiting_value = false
 
       super(io, {mode: :as_json}.merge(options))
@@ -31,15 +31,16 @@ class TurboStreamer
 
     def value(v)
       # @stack only ever holds :map or :array, so this is just depth > 0.
-      @indexes[-1] += 1 unless @stack.empty?
+      @populated[-1] = true unless @stack.empty?
       @awaiting_value = false
+
       super
     end
 
     def map_open
       @awaiting_value = false
       @stack << :map
-      @indexes << 0
+      @populated << false
       super
     end
 
@@ -47,37 +48,45 @@ class TurboStreamer
       if @awaiting_value
         raise ::TurboStreamer::Errors::StructureError.build('the end of an object', :pending_key)
       end
-      @indexes.pop
+      @populated.pop
+
       @stack.pop
       super
+      @populated[-1] = true if @stack.last
     end
 
     def array_open
       @awaiting_value = false
       @stack << :array
-      @indexes << 0
+      @populated << false
       super
     end
 
     def array_close
-      @indexes.pop
+      @populated.pop
       @stack.pop
       super
+      @populated[-1] = true if @stack.last
     end
 
     def inject(string)
       flush
 
-      if @stack.last == :array
-        self.output.write(','.freeze) if @indexes.last > 0
-        @indexes[-1] += 1
-      elsif @stack.last == :map
-        self.output.write(','.freeze) if @indexes.last > 0
-        capture do
-          string("".freeze)
-          string("".freeze)
+      case @stack.last
+      when :array
+        if @populated.last
+          self.output.write(',')
+        else
+          capture { string("") }
         end
-        @indexes[-1] += 1
+        @populated[-1] = true
+      when :map
+        if @populated.last
+          self.output.write(',')
+        else
+          capture { string(""); string("") }
+        end
+        @populated[-1] = true
       end
 
       self.output.write(string)
@@ -87,15 +96,15 @@ class TurboStreamer
       flush
       old_output = self.output
       to = to || ::StringIO.new
-      @indexes << 0
+      @populated << false
       self.output = to
 
       yield
 
       flush
-      to.string.sub(/\A,/, ''.freeze).chomp(",".freeze)
+      to.string.delete_prefix(',').delete_suffix(",")
     ensure
-      @indexes.pop
+      @populated.pop
       self.output = old_output
     end
 

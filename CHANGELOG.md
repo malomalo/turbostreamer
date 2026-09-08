@@ -16,6 +16,41 @@ Unreleased
   emitted a `"null!"` key whose value was an inspected `Object`.
 * Documented that `ActionController::API` silently skips layouts unless
   `ActionView::Layouts` is included.
+* **Breaking:** `partial!` is now `partial!(name, locals: nil, **render_options)`.
+  The partial name is the first argument, template locals go in `locals:`, and
+  every other keyword is passed to Action View as a render option:
+  `json.partial! 'post', locals: { post: @post }`. Previously bare keywords were
+  locals and the name could be given as a `partial:` option.
+
+  Nothing is reserved, so options TurboStreamer does not know about -- `cached:`,
+  `layout:`, whatever Action View adds next -- reach it anyway, and a local may
+  be named `formats` or `object` without being mistaken for an option. Both
+  wrong shapes name the call that was meant.
+  `json.array! @posts, partial: 'post', as: :post` is unaffected.
+* `partial!` no longer writes to anything the caller passed it. `:as` was
+  deleted out of the caller's locals and the builder stored in them, so
+  rendering twice with one hash lost `:as` on the second call and rendered a
+  collection differently. The options hash itself was written to as well,
+  gaining `:handlers` and a `:locals` holding the builder.
+* Covered the failure mode when a partial exists for another handler but not
+  for `:streamer`. Partial lookup is restricted to `:streamer`, which is what
+  makes that raise `MissingTemplate` instead of rendering the other handler's
+  template -- whose output `partial!` discards, since the builder writes to the
+  stream itself, so the node would simply be absent from the response.
+* Fixed the separator around injected JSON -- and so around `cache!`, which
+  splices cached bytes -- in both encoders. A cached fragment beside a
+  normally-rendered sibling in an array emitted `[{...}{...}]`, which is not
+  valid JSON. On the Wankel encoder two cases were silent rather than loud:
+  `[1,2]` came back as `[12]`, valid JSON carrying the wrong value. Both
+  encoders now track whether an open container already holds something, and
+  the Oj encoder hands array fragments to `Oj::StreamWriter#push_json` so the
+  writer places the delimiter itself.
+* Tests no longer leak TurboStreamer's class-level configuration into each
+  other. `rake test:wankel` could silently run most of the suite on Oj: setting
+  the default encoder to `:oj` loads Oj, and a teardown that blanked the
+  defaults left `default_encoder_for` falling through to the first loaded
+  encoder. Whether it happened depended on the random seed, so a green run did
+  not mean the Wankel encoder had been exercised.
 * A key given no value, block or attributes -- `json.foo` on its own -- now
   raises `Errors::MissingValueError` naming the key. It used to reach the
   encoder holding the BLANK sentinel, which Oj wrote out as the inspected
