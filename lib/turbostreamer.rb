@@ -9,6 +9,7 @@ class TurboStreamer
   autoload :KeyFormatter, 'turbostreamer/key_formatter'
   autoload :Errors, 'turbostreamer/errors'
   autoload :MissingValueError, 'turbostreamer/errors'
+  autoload :ConflictingArgumentsError, 'turbostreamer/errors'
 
   BLANK = ::Object.new
 
@@ -157,29 +158,15 @@ class TurboStreamer
     @encoder.array_close
   end
 
-  # A value is distinguished from no value by arity rather than by comparing
-  # against the BLANK sentinel. `json.age` and `json.age 32` differ only in
-  # whether an argument was passed, which is what the splat already records,
-  # and every branch here has to look at `args` regardless.
-  #
-  # The alternative -- keeping the named parameter and comparing it against the
-  # sentinel -- puts a `_blank?` call on every emitted scalar, and this is the
-  # hottest method in the library. Arity is the cheaper test by ~3% on a
-  # key-dense document; hoisting `args[0]` back into a local to keep the name
-  # gives most of that up again, so the value is read where it is used.
   def set!(key, *args, &block)
     @encoder.key(_key(key))
 
     # `block` is a free local read where `args.size` needs the array and an
     # opt_size, so testing it first lets both common shapes short-circuit
-    # before touching args at all. Worth about 3% against leading with the
-    # arity, on a key-dense document and on one with nested blocks alike.
+    # before touching args at all.
     if block
       # json.comments { ... }          =>  { "comments": ... }
       # json.comments(@cs) { |c| ... } =>  { "comments": [ { ... }, { ... } ] }
-      #
-      # Attributes alongside a block are handed on rather than dropped here:
-      # array! owns that precedence and already prefers the block.
       args.empty? ? _scope(&block) : _scope { array!(*args, &block) }
     elsif args.size == 1
       # json.age 32                    =>  { "age": 32 }
@@ -335,6 +322,10 @@ class TurboStreamer
   end
 
   def _extract_collection(collection, *attributes, &block)
+    if block && attributes.any?
+      raise ConflictingArgumentsError.build(attributes)
+    end
+
     if collection.nil?
       # noop
     elsif block
@@ -376,7 +367,7 @@ class TurboStreamer
       # element on its own.
       if !args.empty? && _eachable_arguments?(*args)
         # json.child!(comments) { |c| ... }
-        _scope { array!(args[0], &block) }
+        _scope { array!(*args, &block) }
       else
         # json.child! { ... }
         # [...]

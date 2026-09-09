@@ -255,14 +255,14 @@ class TurboStreamerTest < ActiveSupport::TestCase
     assert_equal([[2, 4]], result)
   end
 
-  # Characterization only -- this shape has no defined meaning. child! routes a
-  # value plus a block through array! when the value is eachable; given a value
-  # that is not, it silently drops the value and lets the block render the
-  # element alone. Nothing says the value should lose rather than the block, and
-  # set! given the same pair does something different again (it iterates the
-  # Hash's pairs). Pinned here so the arity change below is provably
-  # behaviour-preserving, not because the result is right: rejecting the shape
-  # outright is the better answer and belongs with the other structure errors.
+  # Characterization only -- this shape has no defined meaning either, and is
+  # the sibling of the one rejected below that we have not dealt with yet.
+  # child! routes a value plus a block through array! when the value is
+  # eachable; given a value that is not, it silently drops the value and lets
+  # the block render the element alone. Nothing says the value should lose
+  # rather than the block, and set! given the same pair does something different
+  # again (it iterates the Hash's pairs). Pinned so the behaviour is at least
+  # recorded, not because the result is right.
   test 'child! with a non-eachable value and a block drops the value' do
     result = jbuild do |json|
       json.array! do
@@ -275,32 +275,65 @@ class TurboStreamerTest < ActiveSupport::TestCase
     assert_equal([{'other' => 'two'}], result)
   end
 
-  # A block and attributes are mutually exclusive instructions and the block
-  # wins, so the attributes are dropped -- array! decides that, not set!.
+  # Attributes and a block both say how to render each element, so one had to
+  # lose -- the block did, silently, which made a typo look like it worked.
   # Parenthesised because `json.things LIST, :name { ... }` is a SyntaxError;
   # `do ... end` is the other spelling that binds the block to the right call.
-  test 'a key given attributes and a block renders the block' do
+  test 'a key given attributes and a block raises' do
     list = [{id: 1, name: 'one'}, {id: 2, name: 'two'}]
 
-    result = jbuild do |json|
-      json.object! do
-        json.things(list, :name) { |x| json.child! x[:id] }
+    error = assert_raises(TurboStreamer::ConflictingArgumentsError) do
+      jbuild do |json|
+        json.object! do
+          json.things(list, :name) { |x| json.child! x[:id] }
+        end
       end
     end
 
-    assert_equal({'things' => [1, 2]}, result)
+    assert_includes error.message, '[:name]'
   end
 
-  test 'child! given attributes and a block renders the block' do
+  test 'child! given attributes and a block raises' do
     list = [{id: 1, name: 'one'}, {id: 2, name: 'two'}]
 
-    result = jbuild do |json|
-      json.array! do
-        json.child!(list, :name) { |x| json.child! x[:id] }
+    assert_raises(TurboStreamer::ConflictingArgumentsError) do
+      jbuild do |json|
+        json.array! do
+          json.child!(list, :name) { |x| json.child! x[:id] }
+        end
       end
     end
+  end
 
-    assert_equal([[1, 2]], result)
+  test 'array! given attributes and a block raises' do
+    list = [{id: 1, name: 'one'}, {id: 2, name: 'two'}]
+
+    assert_raises(TurboStreamer::ConflictingArgumentsError) do
+      jbuild { |json| json.array!(list, :name) { |x| json.child! x[:id] } }
+    end
+  end
+
+  # The call is what conflicts, not the data, so a nil collection raises too
+  # rather than quietly rendering [].
+  test 'a nil collection given attributes and a block still raises' do
+    assert_raises(TurboStreamer::ConflictingArgumentsError) do
+      jbuild do |json|
+        json.object! { json.things(nil, :name) { |x| json.child! x } }
+      end
+    end
+  end
+
+  # Either one alone is fine, and stays fine.
+  test 'attributes without a block, and a block without attributes' do
+    list = [{id: 1, name: 'one'}, {id: 2, name: 'two'}]
+
+    assert_equal({'things' => [{'name' => 'one'}, {'name' => 'two'}]}, jbuild { |json|
+      json.object! { json.things list, :name }
+    })
+
+    assert_equal({'things' => [1, 2]}, jbuild { |json|
+      json.object! { json.things(list) { |x| json.child! x[:id] } }
+    })
   end
 
   test 'array! with a collection and attributes to pluck from each' do

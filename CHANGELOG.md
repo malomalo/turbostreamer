@@ -48,6 +48,18 @@ Unreleased
   them already looks at `args`, so the new check costs nothing where comparing
   would have cost ~3% of a key-dense document.
 
+* Attributes and a block given together now raise `ConflictingArgumentsError`
+  naming the attributes. `json.comments(@cs, :body) { |c| ... }` used to render
+  the block and drop `:body` without a word, so a typo in the attribute list
+  looked like it worked. Both say how to render each element and only one can
+  win, so neither is a safe default. Applies wherever they meet -- `set!`,
+  `child!` and `array!` -- and a nil collection raises too, since it is the call
+  that conflicts rather than the data.
+
+  `child!` hands its attributes on to `array!` rather than dropping them first,
+  the way `set!` already did, so the check has a single home in
+  `_extract_collection`.
+
 * Fixed the separator around injected JSON -- and so around `cache!`, which
   splices cached bytes -- in both encoders. A cached fragment beside a
   normally-rendered sibling in an array emitted `[{...}{...}]`, which is not

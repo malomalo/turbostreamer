@@ -11,6 +11,17 @@ class TurboStreamer
     end
   end
 
+  # Attributes to pluck and a block, given together: `json.comments(@cs,
+  # :body) { |c| ... }`. Both say how to render each element and only one can
+  # win -- the block did, silently, so the attributes were a typo that looked
+  # like it worked.
+  class ConflictingArgumentsError < ::StandardError
+    def self.build(attributes)
+      new("Attributes #{attributes.inspect} were given along with a block. " \
+          "Both say how to render each element, so pass one or the other.")
+    end
+  end
+
   module Errors
     class MergeError < ::StandardError
       def self.build(updates)
