@@ -7,7 +7,6 @@ class TurboStreamer
   autoload :Handler, 'turbostreamer/handler'
   autoload :Template, 'turbostreamer/template'
   autoload :KeyFormatter, 'turbostreamer/key_formatter'
-  autoload :NoValueError, 'turbostreamer/errors'
   autoload :ArgumentError, 'turbostreamer/errors'
 
   BLANK = ::Object.new
@@ -171,8 +170,8 @@ class TurboStreamer
       # json.age 32                    =>  { "age": 32 }
       @encoder.value(args[0])
     elsif args.empty?
-      # json.comments                  =>  NoValueError
-      raise NoValueError, "No value given for `#{key}`."
+      # json.comments                  =>  ArgumentError
+      raise ArgumentError, "No value given for `#{key}`."
     elsif _eachable_arguments?(*args)
       # json.comments @post.comments, :content, :created_at
       # { "comments": [ { "content": "hello", "created_at": "..." }, { "content": "world", "created_at": "..." } ] }
@@ -376,7 +375,7 @@ class TurboStreamer
     elsif args.size == 1
       value!(args[0])
     elsif args.empty?
-      raise NoValueError, "No value given for `child!`."
+      raise ArgumentError, "No value given for `child!`."
     elsif _eachable_arguments?(*args)
       _scope{ array!(*args) }
     else

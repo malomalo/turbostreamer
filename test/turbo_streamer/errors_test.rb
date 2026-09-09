@@ -3,7 +3,7 @@ require 'test_helper'
 class TurboStreamer::ErrorsTest < ActiveSupport::TestCase
 
   test 'a key with no value raises' do
-    error = assert_raises(TurboStreamer::NoValueError) do
+    error = assert_raises(TurboStreamer::ArgumentError) do
       jbuild do |json|
         json.object! { json.foo }
       end
@@ -13,7 +13,7 @@ class TurboStreamer::ErrorsTest < ActiveSupport::TestCase
   end
 
   test 'set! with no value raises' do
-    error = assert_raises(TurboStreamer::NoValueError) do
+    error = assert_raises(TurboStreamer::ArgumentError) do
       jbuild do |json|
         json.object! { json.set! :foo }
       end
@@ -23,7 +23,7 @@ class TurboStreamer::ErrorsTest < ActiveSupport::TestCase
   end
 
   test 'child! with no value raises' do
-    error = assert_raises(TurboStreamer::NoValueError) do
+    error = assert_raises(TurboStreamer::ArgumentError) do
       jbuild do |json|
         json.array! { json.child! }
       end
