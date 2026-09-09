@@ -275,6 +275,34 @@ class TurboStreamerTest < ActiveSupport::TestCase
     assert_equal([{'other' => 'two'}], result)
   end
 
+  # A block and attributes are mutually exclusive instructions and the block
+  # wins, so the attributes are dropped -- array! decides that, not set!.
+  # Parenthesised because `json.things LIST, :name { ... }` is a SyntaxError;
+  # `do ... end` is the other spelling that binds the block to the right call.
+  test 'a key given attributes and a block renders the block' do
+    list = [{id: 1, name: 'one'}, {id: 2, name: 'two'}]
+
+    result = jbuild do |json|
+      json.object! do
+        json.things(list, :name) { |x| json.child! x[:id] }
+      end
+    end
+
+    assert_equal({'things' => [1, 2]}, result)
+  end
+
+  test 'child! given attributes and a block renders the block' do
+    list = [{id: 1, name: 'one'}, {id: 2, name: 'two'}]
+
+    result = jbuild do |json|
+      json.array! do
+        json.child!(list, :name) { |x| json.child! x[:id] }
+      end
+    end
+
+    assert_equal([[1, 2]], result)
+  end
+
   test 'array! with a collection and attributes to pluck from each' do
     comments = [ {id: 1, content: 'hello'}, {id: 2, content: 'world'} ]
 
