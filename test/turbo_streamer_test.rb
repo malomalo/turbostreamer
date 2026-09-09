@@ -282,7 +282,7 @@ class TurboStreamerTest < ActiveSupport::TestCase
   test 'a key given attributes and a block raises' do
     list = [{id: 1, name: 'one'}, {id: 2, name: 'two'}]
 
-    error = assert_raises(TurboStreamer::ConflictingArgumentsError) do
+    error = assert_raises(TurboStreamer::ArgumentError) do
       jbuild do |json|
         json.object! do
           json.things(list, :name) { |x| json.child! x[:id] }
@@ -296,7 +296,7 @@ class TurboStreamerTest < ActiveSupport::TestCase
   test 'child! given attributes and a block raises' do
     list = [{id: 1, name: 'one'}, {id: 2, name: 'two'}]
 
-    assert_raises(TurboStreamer::ConflictingArgumentsError) do
+    assert_raises(TurboStreamer::ArgumentError) do
       jbuild do |json|
         json.array! do
           json.child!(list, :name) { |x| json.child! x[:id] }
@@ -308,7 +308,7 @@ class TurboStreamerTest < ActiveSupport::TestCase
   test 'array! given attributes and a block raises' do
     list = [{id: 1, name: 'one'}, {id: 2, name: 'two'}]
 
-    assert_raises(TurboStreamer::ConflictingArgumentsError) do
+    assert_raises(TurboStreamer::ArgumentError) do
       jbuild { |json| json.array!(list, :name) { |x| json.child! x[:id] } }
     end
   end
@@ -316,7 +316,7 @@ class TurboStreamerTest < ActiveSupport::TestCase
   # The call is what conflicts, not the data, so a nil collection raises too
   # rather than quietly rendering [].
   test 'a nil collection given attributes and a block still raises' do
-    assert_raises(TurboStreamer::ConflictingArgumentsError) do
+    assert_raises(TurboStreamer::ArgumentError) do
       jbuild do |json|
         json.object! { json.things(nil, :name) { |x| json.child! x } }
       end
@@ -418,7 +418,7 @@ class TurboStreamerTest < ActiveSupport::TestCase
   end
 
   test 'merge! a value with unexpected class in an object' do
-    assert_raises(TurboStreamer::Errors::MergeError) do
+    assert_raises(TurboStreamer::ArgumentError) do
       jbuild do |json|
         json.object! do
           json.set! :author do

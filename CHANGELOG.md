@@ -37,8 +37,18 @@ Unreleased
   makes that raise `MissingTemplate` instead of rendering the other handler's
   template -- whose output `partial!` discards, since the builder writes to the
   stream itself, so the node would simply be absent from the response.
+* **Breaking:** the errors this library raises are now a hierarchy under
+  `TurboStreamer::Error < StandardError`, so all of them can be rescued at
+  once. `TurboStreamer::Errors::MergeError` is gone -- unmergeable values raise
+  `TurboStreamer::ArgumentError`, as does a mime type with no loadable encoder,
+  which used to raise Ruby's `::ArgumentError`. The `TurboStreamer::Errors`
+  module no longer exists.
+
+  Note that `TurboStreamer::ArgumentError` shadows `::ArgumentError` for code
+  inside `class TurboStreamer`; write `::ArgumentError` where Ruby's is meant.
+
 * A key given no value, block or attributes -- `json.foo` on its own -- now
-  raises `MissingValueError` naming the key. It used to reach the encoder
+  raises `NoValueError` naming the key. It used to reach the encoder
   holding the BLANK sentinel, which Oj wrote out as the inspected `Object`,
   memory address included, and Wankel raised `NoMethodError` over.
 
@@ -48,8 +58,8 @@ Unreleased
   them already looks at `args`, so the new check costs nothing where comparing
   would have cost ~3% of a key-dense document.
 
-* Attributes and a block given together now raise `ConflictingArgumentsError`
-  naming the attributes. `json.comments(@cs, :body) { |c| ... }` used to render
+* Attributes and a block given together now raise `ArgumentError` naming the
+  attributes. `json.comments(@cs, :body) { |c| ... }` used to render
   the block and drop `:body` without a word, so a typo in the attribute list
   looked like it worked. Both say how to render each element and only one can
   win, so neither is a safe default. Applies wherever they meet -- `set!`,

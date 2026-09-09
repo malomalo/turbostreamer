@@ -7,9 +7,9 @@ class TurboStreamer
   autoload :Handler, 'turbostreamer/handler'
   autoload :Template, 'turbostreamer/template'
   autoload :KeyFormatter, 'turbostreamer/key_formatter'
-  autoload :Errors, 'turbostreamer/errors'
-  autoload :MissingValueError, 'turbostreamer/errors'
-  autoload :ConflictingArgumentsError, 'turbostreamer/errors'
+  autoload :Error, 'turbostreamer/errors'
+  autoload :NoValueError, 'turbostreamer/errors'
+  autoload :ArgumentError, 'turbostreamer/errors'
 
   BLANK = ::Object.new
 
@@ -172,8 +172,8 @@ class TurboStreamer
       # json.age 32                    =>  { "age": 32 }
       @encoder.value(args[0])
     elsif args.empty?
-      # json.comments                  =>  MissingValueError
-      raise MissingValueError.build(key)
+      # json.comments                  =>  NoValueError
+      raise NoValueError.build(key)
     elsif _eachable_arguments?(*args)
       # json.comments @post.comments, :content, :created_at
       # { "comments": [ { "content": "hello", "created_at": "..." }, { "content": "world", "created_at": "..." } ] }
@@ -198,7 +198,7 @@ class TurboStreamer
         value!(value)
       end
     else
-      raise Errors::MergeError.build(hash_or_array)
+      raise ArgumentError.unmergeable(hash_or_array)
     end
   end
 
@@ -317,13 +317,13 @@ class TurboStreamer
         end
       end
 
-      raise ArgumentError, "Could not find an adapter to use"
+      raise ArgumentError.no_encoder(mime)
     end
   end
 
   def _extract_collection(collection, *attributes, &block)
     if block && attributes.any?
-      raise ConflictingArgumentsError.build(attributes)
+      raise ArgumentError.attributes_with_block(attributes)
     end
 
     if collection.nil?
@@ -376,7 +376,7 @@ class TurboStreamer
     elsif args.size == 1
       value!(args[0])
     elsif args.empty?
-      raise MissingValueError.build('child!')
+      raise NoValueError.build('child!')
     elsif _eachable_arguments?(*args)
       _scope{ array!(*args) }
     else
