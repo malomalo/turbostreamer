@@ -19,12 +19,27 @@ class TurboStreamer
     # does -- a key emitted into an array, or a key never given a value, came
     # out as malformed JSON rather than an error. Check here so both encoders
     # refuse the same things.
+    # Yajl reports nothing about shape, so these are ours to describe. Kept
+    # here rather than in a shared error class because the context comes from
+    # @stack, which is this encoder's own state.
+    def structure_error(what, context = @stack.last)
+      where = case context
+              when :array       then 'inside an array'
+              when :map         then 'inside a map'
+              when :pending_key then 'directly after a key, which is still waiting for its value'
+              when nil          then 'at the top level'
+              else                   "inside #{context}"
+              end
+
+      ::ArgumentError.new("Cannot write #{what} #{where}")
+    end
+
     def key(k)
       if @stack.last != :map
-        raise ::TurboStreamer::Errors::StructureError.build('a key', @stack.last)
+        raise structure_error('a key')
       end
       if @awaiting_value
-        raise ::TurboStreamer::Errors::StructureError.build('a second key', :pending_key)
+        raise structure_error('a second key', :pending_key)
       end
 
       @awaiting_value = true
@@ -33,7 +48,7 @@ class TurboStreamer
 
     def value(v)
       if @stack.last == :map && !@awaiting_value && !@writing_value
-        raise ::TurboStreamer::Errors::StructureError.build('a value without a key', @stack.last)
+        raise structure_error('a value without a key')
       end
 
       # @stack only ever holds :map or :array, so this is just depth > 0.
@@ -55,7 +70,7 @@ class TurboStreamer
 
     def map_close
       if @awaiting_value
-        raise ::TurboStreamer::Errors::StructureError.build('the end of an object', :pending_key)
+        raise structure_error('the end of an object', :pending_key)
       end
       @populated.pop
 

@@ -3,7 +3,7 @@ require 'test_helper'
 class TurboStreamer::ErrorsTest < ActiveSupport::TestCase
 
   test 'a key with no value raises' do
-    error = assert_raises(TurboStreamer::MissingValueError) do
+    error = assert_raises(::ArgumentError) do
       jbuild do |json|
         json.object! { json.foo }
       end
@@ -13,23 +13,32 @@ class TurboStreamer::ErrorsTest < ActiveSupport::TestCase
   end
 
   test 'set! with no value raises' do
-    error = assert_raises(TurboStreamer::MissingValueError) do
+    error = assert_raises(::ArgumentError) do
       jbuild do |json|
         json.object! { json.set! :foo }
       end
     end
-    
+
     assert_equal "No value given for `foo`.", error.message
   end
 
   test 'child! with no value raises' do
-    error = assert_raises(TurboStreamer::MissingValueError) do
+    error = assert_raises(::ArgumentError) do
       jbuild do |json|
         json.array! { json.child! }
       end
     end
 
     assert_equal "No value given for `child!`.", error.message
+  end
+
+  # Untested before this PR, and the message never named the mime type.
+  test 'a mime type with no loadable encoder raises' do
+    error = assert_raises(::ArgumentError) do
+      TurboStreamer.default_encoder_for(:xml)
+    end
+
+    assert_equal 'Could not find an encoder for :xml', error.message
   end
 
   test 'a key with an explicit nil value is still allowed' do
@@ -90,4 +99,5 @@ class TurboStreamer::ErrorsTest < ActiveSupport::TestCase
       json.object! { json.foo({a: {b: [1, {c: nil}]}}) }
     end
   end
+
 end

@@ -37,6 +37,19 @@ Unreleased
   makes that raise `MissingTemplate` instead of rendering the other handler's
   template -- whose output `partial!` discards, since the builder writes to the
   stream itself, so the node would simply be absent from the response.
+
+* **Breaking:** the calls this library refuses raise Ruby's `::ArgumentError`.
+  The `TurboStreamer::Errors` module and `Errors::MergeError` are gone
+
+* A key given no value, block or attributes on its own (e.g. `json.foo`) now
+  raises `ArgumentError` naming the key.
+
+* A value that is not a collection or array like with a block now raises
+  `ArgumentError` naming its class.
+
+* Attributes and a block given together now raise `ArgumentError` naming the
+  attributes (e.g. `json.comments(@cs, :body) { |c| ... }`).
+
 * Fixed the separator around injected JSON -- and so around `cache!`, which
   splices cached bytes -- in both encoders. A cached fragment beside a
   normally-rendered sibling in an array emitted `[{...}{...}]`, which is not
@@ -51,14 +64,11 @@ Unreleased
   defaults left `default_encoder_for` falling through to the first loaded
   encoder. Whether it happened depended on the random seed, so a green run did
   not mean the Wankel encoder had been exercised.
-* A key given no value, block or attributes -- `json.foo` on its own -- now
-  raises `MissingValueError` naming the key. It used to reach the
-  encoder holding the BLANK sentinel, which Oj wrote out as the inspected
-  `Object`, memory address included.
 * The Wankel encoder refuses the same malformed shapes Oj's writer already
   refused, rather than writing broken JSON: a key inside an array (`["a",1]`
   from `merge!`-ing a Hash into an array), a key never given a value (`{"a"}`)
-  and a value written without a key (`{"1"}`).
+  and a value written without a key (`{"1"}`). All raise `::ArgumentError`
+  saying what could not be written and where.
 * Encoder options configured for an encoder now apply whether it is named by
   symbol or by class. `encoder: TurboStreamer::OjEncoder` found no options and
   silently dropped whatever was set for `:oj` -- including the railtie's
