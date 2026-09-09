@@ -255,6 +255,26 @@ class TurboStreamerTest < ActiveSupport::TestCase
     assert_equal([[2, 4]], result)
   end
 
+  # Characterization only -- this shape has no defined meaning. child! routes a
+  # value plus a block through array! when the value is eachable; given a value
+  # that is not, it silently drops the value and lets the block render the
+  # element alone. Nothing says the value should lose rather than the block, and
+  # set! given the same pair does something different again (it iterates the
+  # Hash's pairs). Pinned here so the arity change below is provably
+  # behaviour-preserving, not because the result is right: rejecting the shape
+  # outright is the better answer and belongs with the other structure errors.
+  test 'child! with a non-eachable value and a block drops the value' do
+    result = jbuild do |json|
+      json.array! do
+        json.child!({name: 'one'}) do
+          json.object! { json.other 'two' }
+        end
+      end
+    end
+
+    assert_equal([{'other' => 'two'}], result)
+  end
+
   test 'array! with a collection and attributes to pluck from each' do
     comments = [ {id: 1, content: 'hello'}, {id: 2, content: 'world'} ]
 

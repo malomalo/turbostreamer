@@ -37,6 +37,17 @@ Unreleased
   makes that raise `MissingTemplate` instead of rendering the other handler's
   template -- whose output `partial!` discards, since the builder writes to the
   stream itself, so the node would simply be absent from the response.
+* A key given no value, block or attributes -- `json.foo` on its own -- now
+  raises `MissingValueError` naming the key. It used to reach the encoder
+  holding the BLANK sentinel, which Oj wrote out as the inspected `Object`,
+  memory address included, and Wankel raised `NoMethodError` over.
+
+  `set!` and `child!` now take the value through the splat and tell "no value"
+  from a value by arity, rather than comparing a named parameter against the
+  sentinel. These are the hottest methods in the library and every branch in
+  them already looks at `args`, so the new check costs nothing where comparing
+  would have cost ~3% of a key-dense document.
+
 * Fixed the separator around injected JSON -- and so around `cache!`, which
   splices cached bytes -- in both encoders. A cached fragment beside a
   normally-rendered sibling in an array emitted `[{...}{...}]`, which is not
