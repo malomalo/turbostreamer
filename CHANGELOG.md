@@ -37,50 +37,18 @@ Unreleased
   makes that raise `MissingTemplate` instead of rendering the other handler's
   template -- whose output `partial!` discards, since the builder writes to the
   stream itself, so the node would simply be absent from the response.
+
 * **Breaking:** the calls this library refuses raise Ruby's `::ArgumentError`.
-  The `TurboStreamer::Errors` module and `Errors::MergeError` are gone, and
-  there is no TurboStreamer-specific error class -- `rescue ArgumentError`
-  catches the lot.
+  The `TurboStreamer::Errors` module and `Errors::MergeError` are gone
 
-* A key given no value, block or attributes -- `json.foo` on its own -- now
-  raises `ArgumentError` naming the key. It used to reach the encoder
-  holding the BLANK sentinel, which Oj wrote out as the inspected `Object`,
-  memory address included, and Wankel raised `NoMethodError` over.
+* A key given no value, block or attributes on its own (e.g. `json.foo`) now
+  raises `ArgumentError` naming the key.
 
-  `set!` and `child!` now take the value through the splat and tell "no value"
-  from a value by arity, rather than comparing a named parameter against the
-  sentinel. These are the hottest methods in the library and every branch in
-  them already looks at `args`, so the new check costs nothing where comparing
-  would have cost ~3% of a key-dense document.
-
-* A value that is not a collection, given with a block, now raises
-  `ArgumentError` naming its class. The three entry points used to give three
-  different answers to the same question: `child!` dropped the value,
-  `set!` iterated a Hash's pairs, and anything else raised `NoMethodError`
-  out of `5.each`. A block says how to render each element, so the value has to
-  have elements.
-
-  A Hash counts as having none, which matches the rest of the library --
-  attributes are plucked from a Hash rather than iterated. `hash.to_a` iterates
-  the pairs.
-
-  `nil` is included: `json.comments nil do ... end` used to render `[]`, so a
-  nil association came out as an empty array rather than saying so. Pass `[]`
-  for an empty array, or `@post.comments || []` to keep the old leniency.
-  Without a block nil is unchanged -- `json.array! nil` is still `[]`, which is
-  what the Rails partial path relies on.
+* A value that is not a collection or array like with a block now raises
+  `ArgumentError` naming its class.
 
 * Attributes and a block given together now raise `ArgumentError` naming the
-  attributes. `json.comments(@cs, :body) { |c| ... }` used to render
-  the block and drop `:body` without a word, so a typo in the attribute list
-  looked like it worked. Both say how to render each element and only one can
-  win, so neither is a safe default. Applies wherever they meet -- `set!`,
-  `child!` and `array!` -- and a nil collection raises too, since it is the call
-  that conflicts rather than the data.
-
-  `child!` hands its attributes on to `array!` rather than dropping them first,
-  the way `set!` already did, so the check has a single home in
-  `_extract_collection`.
+  attributes (e.g. `json.comments(@cs, :body) { |c| ... }`).
 
 * Fixed the separator around injected JSON -- and so around `cache!`, which
   splices cached bytes -- in both encoders. A cached fragment beside a
