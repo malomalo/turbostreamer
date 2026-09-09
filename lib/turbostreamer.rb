@@ -30,17 +30,18 @@ class TurboStreamer
     @output_buffer = options[:output_buffer] || ::StringIO.new
     if options[:encoder].is_a?(Symbol)
       @encoder = TurboStreamer.get_encoder(options[:mime] || :json, options[:encoder])
-      @encoder_options = @@encoder_options[options[:encoder]]
+      @encoder_options = TurboStreamer.default_encoder_options(options[:encoder])
     elsif options[:encoder].nil?
       @encoder = TurboStreamer.default_encoder_for(options[:mime] || :json)
       if encoder_symbol = TurboStreamer.encoder_symbol_for(options[:mime] || :json, @encoder)
-        @encoder_options = @@encoder_options[encoder_symbol]
+        @encoder_options = TurboStreamer.default_encoder_options(encoder_symbol)
       else
         @encoder_options = {}
       end
     else
       @encoder = options[:encoder]
-      @encoder_options = {}
+      encoder_symbol = TurboStreamer.encoder_symbol_for(options[:mime] || :json, @encoder)
+      @encoder_options = encoder_symbol ? TurboStreamer.default_encoder_options(encoder_symbol) : {}
     end
 
     @encoder = @encoder.new(@output_buffer, @encoder_options)
