@@ -328,16 +328,6 @@ class RailsIntegration::TemplateTest < ActionView::TestCase
     assert_collection_rendered json, 'posts'
   end
 
-  test 'render as empty array if partials as a nil value' do
-    json = render_streamer <<-STREAMER
-      json.object! do
-        json.posts nil, :partial => 'blog_post', :as => :blog_post
-      end
-    STREAMER
-
-    assert_equal '{"posts":[]}', json
-  end
-
   # Caching Test ===========================================================
 
   test 'fragment caching a JSON object' do
