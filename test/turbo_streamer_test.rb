@@ -255,24 +255,35 @@ class TurboStreamerTest < ActiveSupport::TestCase
     assert_equal([[2, 4]], result)
   end
 
-  # Characterization only -- this shape has no defined meaning either, and is
-  # the sibling of the one rejected below that we have not dealt with yet.
-  # child! routes a value plus a block through array! when the value is
-  # eachable; given a value that is not, it silently drops the value and lets
-  # the block render the element alone. Nothing says the value should lose
-  # rather than the block, and set! given the same pair does something different
-  # again (it iterates the Hash's pairs). Pinned so the behaviour is at least
-  # recorded, not because the result is right.
-  test 'child! with a non-eachable value and a block drops the value' do
-    result = jbuild do |json|
-      json.array! do
-        json.child!({name: 'one'}) do
-          json.object! { json.other 'two' }
-        end
+  # A block says how to render each element, so the value has to have elements.
+  # It used to silently drop the value in child!, iterate a Hash's pairs in
+  # set!, and raise NoMethodError out of `5.each` for anything else -- three
+  # answers to the same question, none of them the caller's.
+  #
+  # A Hash counts as having no elements here, matching the rest of the library:
+  # attributes are plucked from a Hash rather than iterated. Pass `hash.to_a`
+  # to iterate the pairs.
+  test 'a non-eachable value given with a block raises' do
+    [{name: 'one'}, 5, 'str'].each do |value|
+      assert_raises(TurboStreamer::ArgumentError, "for #{value.class}") do
+        jbuild { |json| json.array! { json.child!(value) { json.value! 1 } } }
+      end
+
+      assert_raises(TurboStreamer::ArgumentError, "for #{value.class}") do
+        jbuild { |json| json.object! { json.things(value) { json.value! 1 } } }
+      end
+
+      assert_raises(TurboStreamer::ArgumentError, "for #{value.class}") do
+        jbuild { |json| json.array!(value) { json.value! 1 } }
       end
     end
+  end
 
-    assert_equal([{'other' => 'two'}], result)
+  # nil keeps meaning "an empty collection" rather than "not a collection".
+  test 'a nil collection with a block is still an empty array' do
+    assert_equal({'things' => []}, jbuild { |json|
+      json.object! { json.things(nil) { json.value! 1 } }
+    })
   end
 
   # Attributes and a block both say how to render each element, so one had to

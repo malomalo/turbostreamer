@@ -196,7 +196,7 @@ class TurboStreamer
         value!(value)
       end
     else
-      raise ArgumentError, "Can't merge #{hash_or_array.inspect} which isn't Hash or Array"
+      raise ArgumentError, "Can't merge #{hash_or_array.inspect}"
     end
   end
 
@@ -321,13 +321,20 @@ class TurboStreamer
 
   def _extract_collection(collection, *attributes, &block)
     if block && attributes.any?
-      raise ArgumentError, "Attributes #{attributes.inspect} were given along with a block. " \
-            "Both say how to render each element, so pass one or the other."
+      raise ArgumentError, "Attributes #{attributes.inspect} cannot be given with a block."
     end
 
     if collection.nil?
       # noop
     elsif block
+      # A block says how to render each element, so there have to be elements.
+      # A Hash is not one of these anywhere else in the library -- attributes
+      # are plucked from it rather than iterated -- so it is not one here.
+      unless _eachable_arguments?(collection)
+        raise ArgumentError, "#{collection.class} was given along with a block. " \
+              "A block renders each element, so pass something with elements."
+      end
+
       collection.each do |element|
         _scope{ yield element }
       end
@@ -361,17 +368,9 @@ class TurboStreamer
   #   end
   def child!(*args, &block)
     if block
-      # Unlike set!, a value alongside a block is only splatted when it is
-      # eachable -- anything else is discarded and the block renders the
-      # element on its own.
-      if !args.empty? && _eachable_arguments?(*args)
-        # json.child!(comments) { |c| ... }
-        _scope { array!(*args, &block) }
-      else
-        # json.child! { ... }
-        # [...]
-        _scope(&block)
-      end
+      # json.child! { ... }               =>  [ ... ]
+      # json.child!(comments) { |c| ... } =>  [ [ ... ] ]
+      args.empty? ? _scope(&block) : _scope { array!(*args, &block) }
     elsif args.size == 1
       value!(args[0])
     elsif args.empty?

@@ -56,6 +56,18 @@ Unreleased
   them already looks at `args`, so the new check costs nothing where comparing
   would have cost ~3% of a key-dense document.
 
+* A value that is not a collection, given with a block, now raises
+  `ArgumentError` naming its class. The three entry points used to give three
+  different answers to the same question: `child!` dropped the value,
+  `set!` iterated a Hash's pairs, and anything else raised `NoMethodError`
+  out of `5.each`. A block says how to render each element, so the value has to
+  have elements.
+
+  A Hash counts as having none, which matches the rest of the library --
+  attributes are plucked from a Hash rather than iterated. `hash.to_a` iterates
+  the pairs. `nil` still means an empty collection, not a missing one, so
+  `json.comments nil do ... end` is still `[]`.
+
 * Attributes and a block given together now raise `ArgumentError` naming the
   attributes. `json.comments(@cs, :body) { |c| ... }` used to render
   the block and drop `:body` without a word, so a typo in the attribute list
