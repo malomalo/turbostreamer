@@ -30,17 +30,26 @@ class TurboStreamer
     @output_buffer = options[:output_buffer] || ::StringIO.new
     if options[:encoder].is_a?(Symbol)
       @encoder = TurboStreamer.get_encoder(options[:mime] || :json, options[:encoder])
-      @encoder_options = @@encoder_options[options[:encoder]]
+      # Read through default_encoder_options, not @@encoder_options[] --
+      # the Hash defaults new keys to {} *and assigns them*, so reading a
+      # missing key here made has_default_encoder_options? true for any
+      # encoder that had merely been rendered with.
+      @encoder_options = TurboStreamer.default_encoder_options(options[:encoder])
     elsif options[:encoder].nil?
       @encoder = TurboStreamer.default_encoder_for(options[:mime] || :json)
       if encoder_symbol = TurboStreamer.encoder_symbol_for(options[:mime] || :json, @encoder)
-        @encoder_options = @@encoder_options[encoder_symbol]
+        @encoder_options = TurboStreamer.default_encoder_options(encoder_symbol)
       else
         @encoder_options = {}
       end
     else
       @encoder = options[:encoder]
-      @encoder_options = {}
+      # Options are stored under the encoder's symbol, so look the class back
+      # up rather than handing it an empty hash. Naming Oj by class instead of
+      # by :oj used to silently drop whatever was configured for it -- the
+      # railtie's `mode: :rails`, and so its HTML escaping, included.
+      encoder_symbol = TurboStreamer.encoder_symbol_for(options[:mime] || :json, @encoder)
+      @encoder_options = encoder_symbol ? TurboStreamer.default_encoder_options(encoder_symbol) : {}
     end
 
     @encoder = @encoder.new(@output_buffer, @encoder_options)
