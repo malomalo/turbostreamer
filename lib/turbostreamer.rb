@@ -428,6 +428,16 @@ class TurboStreamer
     @key_formatter = parent_formatter
   end
 
+  # Looks like pointless indirection and is not: this is the hook Template
+  # widens. There, a trailing `as:` option makes even a nil collection a
+  # collection to render, which is what turns `json.posts nil, partial: 'post',
+  # as: :post` into [] rather than an object to extract attributes from. A plain
+  # builder has no partials to route to, so it ignores the arguments -- but the
+  # call sites in set! and child! have to pass them for the subclass to see.
+  #
+  # Kept separate from _eachable? rather than merged either way round: that one
+  # is asked once per collection rendered with a block and has to stay
+  # splat-free, and this one cannot be, since Template needs the options hash.
   def _eachable_arguments?(value, *args)
     _eachable?(value)
   end
