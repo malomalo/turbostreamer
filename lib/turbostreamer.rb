@@ -320,15 +320,12 @@ class TurboStreamer
   end
 
   def _extract_collection(collection, *attributes, &block)
-    if block && attributes.any?
-      raise ArgumentError, "Attributes #{attributes.inspect} cannot be given with a block."
-    end
-
-    # A block renders each element, so whatever it was given has to have
-    # elements. Checked ahead of the nil branch: nil is not Array-like either,
-    # so `json.things(nil) { ... }` is the same mistake as `json.things(5)`.
-    if block && !_eachable_arguments?(collection)
-      raise ArgumentError, "#{collection.inspect} is not Array-like."
+    if block
+      if !attributes.empty?
+        raise ArgumentError, "Attributes #{attributes.inspect} cannot be given with a block."
+      elsif !_eachable?(collection)
+        raise ArgumentError, "#{collection.inspect} is not Array-like."
+      end
     end
 
     if collection.nil?
@@ -432,6 +429,13 @@ class TurboStreamer
   end
 
   def _eachable_arguments?(value, *args)
+    _eachable?(value)
+  end
+
+  # Splat-free, unlike _eachable_arguments?: calling a method that has a rest
+  # parameter allocates the rest array every time, and _extract_collection asks
+  # this once per collection rendered with a block.
+  def _eachable?(value)
     value.respond_to?(:each) && !value.is_a?(Hash)
   end
 

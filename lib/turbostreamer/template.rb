@@ -204,7 +204,7 @@ class TurboStreamer::Template < TurboStreamer
   # builder the `:as` clause has nothing to route to, and would only turn
   # `json.foo nil, as: :x` from a TypeError into [].
   def _eachable_arguments?(value, *args)
-    return true if value.respond_to?(:each) && !value.is_a?(Hash)
+    return true if _eachable?(value)
 
     options = args.last
     ::Hash === options && options.key?(:as)

@@ -200,11 +200,6 @@ class TurboStreamerTest < ActiveSupport::TestCase
     assert_equal([nil, 1, true, false, "string"], result)
   end
 
-  # nil is not Array-like, so a block has nothing to render each of. This used
-  # to come out as [], which meant `json.comments @post.comments do ... end`
-  # quietly rendered an empty array when the association was nil rather than
-  # saying so. Write `json.comments []` for an empty array, or
-  # `@post.comments || []` to keep the old leniency.
   test 'array! with a nil collection and a block raises' do
     error = assert_raises(TurboStreamer::ArgumentError) do
       jbuild do |json|
@@ -219,8 +214,6 @@ class TurboStreamerTest < ActiveSupport::TestCase
     assert_equal 'nil is not Array-like.', error.message
   end
 
-  # Without a block nil still means an empty collection, which is what the
-  # Rails partial path relies on: `json.posts nil, partial: 'post', as: :post`.
   test 'array! with a nil collection and no block is an empty array' do
     assert_equal([], jbuild { |json| json.array! nil })
   end
