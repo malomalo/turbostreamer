@@ -37,13 +37,10 @@ Unreleased
   makes that raise `MissingTemplate` instead of rendering the other handler's
   template -- whose output `partial!` discards, since the builder writes to the
   stream itself, so the node would simply be absent from the response.
-* **Breaking:** this library raises one error, `TurboStreamer::ArgumentError`.
-  The `TurboStreamer::Errors` module and `Errors::MergeError` are gone -- an
-  unmergeable value raises `ArgumentError`, as does a mime type with no loadable
-  encoder, which used to raise Ruby's `::ArgumentError`.
-
-  Note that `TurboStreamer::ArgumentError` shadows `::ArgumentError` for code
-  inside `class TurboStreamer`; write `::ArgumentError` where Ruby's is meant.
+* **Breaking:** the calls this library refuses raise Ruby's `::ArgumentError`.
+  The `TurboStreamer::Errors` module and `Errors::MergeError` are gone, and
+  there is no TurboStreamer-specific error class -- `rescue ArgumentError`
+  catches the lot.
 
 * A key given no value, block or attributes -- `json.foo` on its own -- now
   raises `ArgumentError` naming the key. It used to reach the encoder

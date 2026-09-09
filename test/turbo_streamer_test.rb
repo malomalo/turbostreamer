@@ -201,7 +201,7 @@ class TurboStreamerTest < ActiveSupport::TestCase
   end
 
   test 'array! with a nil collection and a block raises' do
-    error = assert_raises(TurboStreamer::ArgumentError) do
+    error = assert_raises(::ArgumentError) do
       jbuild do |json|
         json.object! do
           json.comments nil do |comment|
@@ -263,15 +263,15 @@ class TurboStreamerTest < ActiveSupport::TestCase
 
   test 'a non-eachable value given with a block raises' do
     [{name: 'one'}, 5, 'str', nil].each do |value|
-      assert_raises(TurboStreamer::ArgumentError, "for #{value.class}") do
+      assert_raises(::ArgumentError, "for #{value.class}") do
         jbuild { |json| json.array! { json.child!(value) { json.value! 1 } } }
       end
 
-      assert_raises(TurboStreamer::ArgumentError, "for #{value.class}") do
+      assert_raises(::ArgumentError, "for #{value.class}") do
         jbuild { |json| json.object! { json.things(value) { json.value! 1 } } }
       end
 
-      assert_raises(TurboStreamer::ArgumentError, "for #{value.class}") do
+      assert_raises(::ArgumentError, "for #{value.class}") do
         jbuild { |json| json.array!(value) { json.value! 1 } }
       end
     end
@@ -285,7 +285,7 @@ class TurboStreamerTest < ActiveSupport::TestCase
   test 'a key given attributes and a block raises' do
     list = [{id: 1, name: 'one'}, {id: 2, name: 'two'}]
 
-    error = assert_raises(TurboStreamer::ArgumentError) do
+    error = assert_raises(::ArgumentError) do
       jbuild do |json|
         json.object! do
           json.things(list, :name) { |x| json.child! x[:id] }
@@ -299,7 +299,7 @@ class TurboStreamerTest < ActiveSupport::TestCase
   test 'child! given attributes and a block raises' do
     list = [{id: 1, name: 'one'}, {id: 2, name: 'two'}]
 
-    assert_raises(TurboStreamer::ArgumentError) do
+    assert_raises(::ArgumentError) do
       jbuild do |json|
         json.array! do
           json.child!(list, :name) { |x| json.child! x[:id] }
@@ -311,7 +311,7 @@ class TurboStreamerTest < ActiveSupport::TestCase
   test 'array! given attributes and a block raises' do
     list = [{id: 1, name: 'one'}, {id: 2, name: 'two'}]
 
-    assert_raises(TurboStreamer::ArgumentError) do
+    assert_raises(::ArgumentError) do
       jbuild { |json| json.array!(list, :name) { |x| json.child! x[:id] } }
     end
   end
@@ -319,7 +319,7 @@ class TurboStreamerTest < ActiveSupport::TestCase
   # The call is what conflicts, not the data, so a nil collection raises too
   # rather than quietly rendering [].
   test 'a nil collection given attributes and a block still raises' do
-    assert_raises(TurboStreamer::ArgumentError) do
+    assert_raises(::ArgumentError) do
       jbuild do |json|
         json.object! { json.things(nil, :name) { |x| json.child! x } }
       end
@@ -421,7 +421,7 @@ class TurboStreamerTest < ActiveSupport::TestCase
   end
 
   test 'merge! a value with unexpected class in an object' do
-    assert_raises(TurboStreamer::ArgumentError) do
+    assert_raises(::ArgumentError) do
       jbuild do |json|
         json.object! do
           json.set! :author do

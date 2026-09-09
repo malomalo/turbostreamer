@@ -3,7 +3,7 @@ require 'test_helper'
 class TurboStreamer::ErrorsTest < ActiveSupport::TestCase
 
   test 'a key with no value raises' do
-    error = assert_raises(TurboStreamer::ArgumentError) do
+    error = assert_raises(::ArgumentError) do
       jbuild do |json|
         json.object! { json.foo }
       end
@@ -13,7 +13,7 @@ class TurboStreamer::ErrorsTest < ActiveSupport::TestCase
   end
 
   test 'set! with no value raises' do
-    error = assert_raises(TurboStreamer::ArgumentError) do
+    error = assert_raises(::ArgumentError) do
       jbuild do |json|
         json.object! { json.set! :foo }
       end
@@ -23,7 +23,7 @@ class TurboStreamer::ErrorsTest < ActiveSupport::TestCase
   end
 
   test 'child! with no value raises' do
-    error = assert_raises(TurboStreamer::ArgumentError) do
+    error = assert_raises(::ArgumentError) do
       jbuild do |json|
         json.array! { json.child! }
       end
@@ -32,10 +32,9 @@ class TurboStreamer::ErrorsTest < ActiveSupport::TestCase
     assert_equal "No value given for `child!`.", error.message
   end
 
-  # This one used to be Ruby's ::ArgumentError and is now ours, by way of the
-  # shadowing inside `class TurboStreamer`.
+  # Untested before this PR, and the message never named the mime type.
   test 'a mime type with no loadable encoder raises' do
-    error = assert_raises(TurboStreamer::ArgumentError) do
+    error = assert_raises(::ArgumentError) do
       TurboStreamer.default_encoder_for(:xml)
     end
 

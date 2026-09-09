@@ -7,7 +7,6 @@ class TurboStreamer
   autoload :Handler, 'turbostreamer/handler'
   autoload :Template, 'turbostreamer/template'
   autoload :KeyFormatter, 'turbostreamer/key_formatter'
-  autoload :ArgumentError, 'turbostreamer/errors'
 
   BLANK = ::Object.new
 
@@ -171,7 +170,7 @@ class TurboStreamer
       @encoder.value(args[0])
     elsif args.empty?
       # json.comments                  =>  ArgumentError
-      raise ArgumentError, "No value given for `#{key}`."
+      raise ::ArgumentError, "No value given for `#{key}`."
     elsif _eachable?(args[0])
       # json.comments @post.comments, :content, :created_at
       # { "comments": [ { "content": "hello", "created_at": "..." }, { "content": "world", "created_at": "..." } ] }
@@ -196,7 +195,7 @@ class TurboStreamer
         value!(value)
       end
     else
-      raise ArgumentError, "Can't merge #{hash_or_array.inspect}"
+      raise ::ArgumentError, "Can't merge #{hash_or_array.inspect}"
     end
   end
 
@@ -315,16 +314,16 @@ class TurboStreamer
         end
       end
 
-      raise ArgumentError, "Could not find an encoder for #{mime.inspect}"
+      raise ::ArgumentError, "Could not find an encoder for #{mime.inspect}"
     end
   end
 
   def _extract_collection(collection, *attributes, &block)
     if block
       if !attributes.empty?
-        raise ArgumentError, "Attributes #{attributes.inspect} cannot be given with a block."
+        raise ::ArgumentError, "Attributes #{attributes.inspect} cannot be given with a block."
       elsif !_eachable?(collection)
-        raise ArgumentError, "#{collection.inspect} is not Array-like."
+        raise ::ArgumentError, "#{collection.inspect} is not Array-like."
       end
     end
 
@@ -370,7 +369,7 @@ class TurboStreamer
     elsif args.size == 1
       value!(args[0])
     elsif args.empty?
-      raise ArgumentError, "No value given for `child!`."
+      raise ::ArgumentError, "No value given for `child!`."
     elsif _eachable?(args[0])
       _scope{ array!(*args) }
     else
