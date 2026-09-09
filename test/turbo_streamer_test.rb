@@ -200,16 +200,29 @@ class TurboStreamerTest < ActiveSupport::TestCase
     assert_equal([nil, 1, true, false, "string"], result)
   end
 
-  test 'array! with a nil collection' do
-    result = jbuild do |json|
-      json.object! do
-        json.comments nil do |comment|
-          json.child! 1
+  # nil is not Array-like, so a block has nothing to render each of. This used
+  # to come out as [], which meant `json.comments @post.comments do ... end`
+  # quietly rendered an empty array when the association was nil rather than
+  # saying so. Write `json.comments []` for an empty array, or
+  # `@post.comments || []` to keep the old leniency.
+  test 'array! with a nil collection and a block raises' do
+    error = assert_raises(TurboStreamer::ArgumentError) do
+      jbuild do |json|
+        json.object! do
+          json.comments nil do |comment|
+            json.child! 1
+          end
         end
       end
     end
 
-    assert_equal({'comments' => []}, result)
+    assert_equal 'nil is not Array-like.', error.message
+  end
+
+  # Without a block nil still means an empty collection, which is what the
+  # Rails partial path relies on: `json.posts nil, partial: 'post', as: :post`.
+  test 'array! with a nil collection and no block is an empty array' do
+    assert_equal([], jbuild { |json| json.array! nil })
   end
 
   test 'array! block calling child! with a collection' do
@@ -255,16 +268,8 @@ class TurboStreamerTest < ActiveSupport::TestCase
     assert_equal([[2, 4]], result)
   end
 
-  # A block says how to render each element, so the value has to have elements.
-  # It used to silently drop the value in child!, iterate a Hash's pairs in
-  # set!, and raise NoMethodError out of `5.each` for anything else -- three
-  # answers to the same question, none of them the caller's.
-  #
-  # A Hash counts as having no elements here, matching the rest of the library:
-  # attributes are plucked from a Hash rather than iterated. Pass `hash.to_a`
-  # to iterate the pairs.
   test 'a non-eachable value given with a block raises' do
-    [{name: 'one'}, 5, 'str'].each do |value|
+    [{name: 'one'}, 5, 'str', nil].each do |value|
       assert_raises(TurboStreamer::ArgumentError, "for #{value.class}") do
         jbuild { |json| json.array! { json.child!(value) { json.value! 1 } } }
       end
@@ -279,12 +284,6 @@ class TurboStreamerTest < ActiveSupport::TestCase
     end
   end
 
-  # nil keeps meaning "an empty collection" rather than "not a collection".
-  test 'a nil collection with a block is still an empty array' do
-    assert_equal({'things' => []}, jbuild { |json|
-      json.object! { json.things(nil) { json.value! 1 } }
-    })
-  end
 
   # Attributes and a block both say how to render each element, so one had to
   # lose -- the block did, silently, which made a typo look like it worked.

@@ -324,17 +324,16 @@ class TurboStreamer
       raise ArgumentError, "Attributes #{attributes.inspect} cannot be given with a block."
     end
 
+    # A block renders each element, so whatever it was given has to have
+    # elements. Checked ahead of the nil branch: nil is not Array-like either,
+    # so `json.things(nil) { ... }` is the same mistake as `json.things(5)`.
+    if block && !_eachable_arguments?(collection)
+      raise ArgumentError, "#{collection.inspect} is not Array-like."
+    end
+
     if collection.nil?
       # noop
     elsif block
-      # A block says how to render each element, so there have to be elements.
-      # A Hash is not one of these anywhere else in the library -- attributes
-      # are plucked from it rather than iterated -- so it is not one here.
-      unless _eachable_arguments?(collection)
-        raise ArgumentError, "#{collection.class} was given along with a block. " \
-              "A block renders each element, so pass something with elements."
-      end
-
       collection.each do |element|
         _scope{ yield element }
       end

@@ -65,8 +65,13 @@ Unreleased
 
   A Hash counts as having none, which matches the rest of the library --
   attributes are plucked from a Hash rather than iterated. `hash.to_a` iterates
-  the pairs. `nil` still means an empty collection, not a missing one, so
-  `json.comments nil do ... end` is still `[]`.
+  the pairs.
+
+  `nil` is included: `json.comments nil do ... end` used to render `[]`, so a
+  nil association came out as an empty array rather than saying so. Pass `[]`
+  for an empty array, or `@post.comments || []` to keep the old leniency.
+  Without a block nil is unchanged -- `json.array! nil` is still `[]`, which is
+  what the Rails partial path relies on.
 
 * Attributes and a block given together now raise `ArgumentError` naming the
   attributes. `json.comments(@cs, :body) { |c| ... }` used to render
