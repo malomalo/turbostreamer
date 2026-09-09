@@ -42,6 +42,7 @@ Unreleased
   symbol or by class. `encoder: TurboStreamer::OjEncoder` found no options and
   silently dropped whatever was set for `:oj` -- including the railtie's
   `mode: :rails`, and so its HTML escaping -- where `encoder: :oj` kept them.
+
 * `has_default_encoder_options?` no longer reports true for an encoder merely
   because something was rendered with it. Building a builder read through the
   options Hash's default proc, which assigns as it reads.
