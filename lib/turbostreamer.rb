@@ -172,7 +172,7 @@ class TurboStreamer
     elsif args.empty?
       # json.comments                  =>  ArgumentError
       raise ArgumentError, "No value given for `#{key}`."
-    elsif _eachable_arguments?(*args)
+    elsif _eachable?(args[0])
       # json.comments @post.comments, :content, :created_at
       # { "comments": [ { "content": "hello", "created_at": "..." }, { "content": "world", "created_at": "..." } ] }
       _scope{ array!(*args) }
@@ -371,7 +371,7 @@ class TurboStreamer
       value!(args[0])
     elsif args.empty?
       raise ArgumentError, "No value given for `child!`."
-    elsif _eachable_arguments?(*args)
+    elsif _eachable?(args[0])
       _scope{ array!(*args) }
     else
       object!{ _extract(args.shift, args) }
@@ -428,23 +428,10 @@ class TurboStreamer
     @key_formatter = parent_formatter
   end
 
-  # Looks like pointless indirection and is not: this is the hook Template
-  # widens. There, a trailing `as:` option makes even a nil collection a
-  # collection to render, which is what turns `json.posts nil, partial: 'post',
-  # as: :post` into [] rather than an object to extract attributes from. A plain
-  # builder has no partials to route to, so it ignores the arguments -- but the
-  # call sites in set! and child! have to pass them for the subclass to see.
-  #
-  # Kept separate from _eachable? rather than merged either way round: that one
-  # is asked once per collection rendered with a block and has to stay
-  # splat-free, and this one cannot be, since Template needs the options hash.
-  def _eachable_arguments?(value, *args)
-    _eachable?(value)
-  end
-
-  # Splat-free, unlike _eachable_arguments?: calling a method that has a rest
-  # parameter allocates the rest array every time, and _extract_collection asks
-  # this once per collection rendered with a block.
+  # Deliberately takes one argument and no splat: calling a method that has a
+  # rest parameter allocates the rest array every time, and this is asked once
+  # per collection rendered and once per set!/child! that has to work out what
+  # its arguments mean.
   def _eachable?(value)
     value.respond_to?(:each) && !value.is_a?(Hash)
   end

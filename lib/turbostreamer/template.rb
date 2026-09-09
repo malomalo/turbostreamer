@@ -193,21 +193,4 @@ class TurboStreamer::Template < TurboStreamer
     end
   end
 
-  # The base rule, plus the case only Rails has: a nil collection rendered
-  # through a partial -- `json.comments nil, partial: 'comment/comment', as:
-  # :comment` -- has to reach array! to come out as [] rather than being
-  # treated as a single object to extract from.
-  #
-  # Written out rather than calling super, because child! runs this on every
-  # element and the second dispatch showed up. It stays here rather than moving
-  # into TurboStreamer because partial! is a Template method: in a plain
-  # builder the `:as` clause has nothing to route to, and would only turn
-  # `json.foo nil, as: :x` from a TypeError into [].
-  def _eachable_arguments?(value, *args)
-    return true if _eachable?(value)
-
-    options = args.last
-    ::Hash === options && options.key?(:as)
-  end
-
 end
