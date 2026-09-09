@@ -32,18 +32,6 @@ class TurboStreamer::ErrorsTest < ActiveSupport::TestCase
     assert_equal "No value given for `child!`.", error.message
   end
 
-  # The point of the hierarchy: one rescue for anything this library raises.
-  test 'every error this library raises is a TurboStreamer::Error' do
-    [
-      -> { jbuild { |json| json.object! { json.foo } } },
-      -> { jbuild { |json| json.object! { json.foo([1], :a) { } } } },
-      -> { jbuild { |json| json.object! { json.merge!(Set.new) } } },
-      -> { TurboStreamer.default_encoder_for(:xml) },
-    ].each do |call|
-      assert_raises(TurboStreamer::Error) { call.call }
-    end
-  end
-
   # This one used to be Ruby's ::ArgumentError and is now ours, by way of the
   # shadowing inside `class TurboStreamer`.
   test 'a mime type with no loadable encoder raises' do

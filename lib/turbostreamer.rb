@@ -7,7 +7,6 @@ class TurboStreamer
   autoload :Handler, 'turbostreamer/handler'
   autoload :Template, 'turbostreamer/template'
   autoload :KeyFormatter, 'turbostreamer/key_formatter'
-  autoload :Error, 'turbostreamer/errors'
   autoload :NoValueError, 'turbostreamer/errors'
   autoload :ArgumentError, 'turbostreamer/errors'
 
@@ -173,7 +172,7 @@ class TurboStreamer
       @encoder.value(args[0])
     elsif args.empty?
       # json.comments                  =>  NoValueError
-      raise NoValueError.build(key)
+      raise NoValueError, "No value given for `#{key}`."
     elsif _eachable_arguments?(*args)
       # json.comments @post.comments, :content, :created_at
       # { "comments": [ { "content": "hello", "created_at": "..." }, { "content": "world", "created_at": "..." } ] }
@@ -198,7 +197,7 @@ class TurboStreamer
         value!(value)
       end
     else
-      raise ArgumentError.unmergeable(hash_or_array)
+      raise ArgumentError, "Can't merge #{hash_or_array.inspect} which isn't Hash or Array"
     end
   end
 
@@ -317,13 +316,14 @@ class TurboStreamer
         end
       end
 
-      raise ArgumentError.no_encoder(mime)
+      raise ArgumentError, "Could not find an encoder for #{mime.inspect}"
     end
   end
 
   def _extract_collection(collection, *attributes, &block)
     if block && attributes.any?
-      raise ArgumentError.attributes_with_block(attributes)
+      raise ArgumentError, "Attributes #{attributes.inspect} were given along with a block. " \
+            "Both say how to render each element, so pass one or the other."
     end
 
     if collection.nil?
@@ -376,7 +376,7 @@ class TurboStreamer
     elsif args.size == 1
       value!(args[0])
     elsif args.empty?
-      raise NoValueError.build('child!')
+      raise NoValueError, "No value given for `child!`."
     elsif _eachable_arguments?(*args)
       _scope{ array!(*args) }
     else
