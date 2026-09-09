@@ -34,11 +34,7 @@ class TurboStreamer::EscapingTest < ActiveSupport::TestCase
   end
 
   test 'oj in rails mode escapes HTML entities' do
-    json = encode_with(mode: :rails)
-
-    assert_equal ESCAPED, json
-    refute_includes json, '<'
-    refute_includes json, '>'
+    assert_equal encode_with(mode: :rails), ESCAPED
   end
 
   test 'oj outside rails mode does not escape them' do

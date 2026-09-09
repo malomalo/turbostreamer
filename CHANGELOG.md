@@ -38,6 +38,15 @@ Unreleased
   template -- whose output `partial!` discards, since the builder writes to the
   stream itself, so the node would simply be absent from the response.
 
+* Encoder options configured for an encoder now apply whether it is named by
+  symbol or by class. `encoder: TurboStreamer::OjEncoder` found no options and
+  silently dropped whatever was set for `:oj` -- including the railtie's
+  `mode: :rails`, and so its HTML escaping -- where `encoder: :oj` kept them.
+
+* `has_default_encoder_options?` no longer reports true for an encoder merely
+  because something was rendered with it. Building a builder read through the
+  options Hash's default proc, which assigns as it reads.
+
 * **Breaking:** the calls this library refuses raise Ruby's `::ArgumentError`.
   The `TurboStreamer::Errors` module and `Errors::MergeError` are gone
 
@@ -69,13 +78,6 @@ Unreleased
   from `merge!`-ing a Hash into an array), a key never given a value (`{"a"}`)
   and a value written without a key (`{"1"}`). All raise `::ArgumentError`
   saying what could not be written and where.
-* Encoder options configured for an encoder now apply whether it is named by
-  symbol or by class. `encoder: TurboStreamer::OjEncoder` found no options and
-  silently dropped whatever was set for `:oj` -- including the railtie's
-  `mode: :rails`, and so its HTML escaping -- where `encoder: :oj` kept them.
-* `has_default_encoder_options?` no longer reports true for an encoder merely
-  because something was rendered with it. Building a builder read through the
-  options Hash's default proc, which assigns as it reads.
 * `cache!` now works under a key, caching that key's value:
   `json.author { json.cache!('k') { json.object! { ... } } }`. It used to raise
   on Oj and emit `{"author"{"a":1}}` on Wankel, because injected bytes go around
