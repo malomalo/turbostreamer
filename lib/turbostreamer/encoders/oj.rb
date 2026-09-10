@@ -22,10 +22,6 @@ class TurboStreamer
       @tee = Tee.new(io)
       @stream_writer = ::Oj::StreamWriter.new(@tee, @options)
       @pending_comma = false
-      # Whether a key has been written and is still owed its value. Oj's writer
-      # knows but will not say, and inject has to know: in value position a
-      # fragment goes through push_json, which places the colon, and everywhere
-      # else in a map it cannot.
       @awaiting_value = false
     end
 
@@ -122,12 +118,6 @@ class TurboStreamer
       # delimiter, and the element count with it -- everywhere except a bare
       # sequence of pairs joining an open map, which is neither a value nor
       # something with a key of its own.
-      #
-      # Oj will say which by raising, and survives being asked, but asking
-      # costs an exception on every cache hit that replays a pair sequence --
-      # the shape `json.cache!` produces when it wraps a key, which is the
-      # common one. Tracking the position instead is two ivar writes on the
-      # hot path and none here.
       if @awaiting_value || @stack.last != :map
         @stream_writer.push_json(string)
         @populated[-1] = true if @stack.last == :array
