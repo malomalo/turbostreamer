@@ -332,30 +332,32 @@ json.object! do
 end
 ```
 
-The only caveat with caching is inside and object you must cache both the key
-and the value. You cannot just cache the value. For example:
+Caching works both over a key and its value, and under a key as that key's
+value:
 
 ```ruby
-json.boject! do
-  json.key do
-    json.cache! :key do
-    	json.value! 'Cache this.'
-    end
+# the whole pair, or several pairs, as one fragment
+json.object! do
+  json.cache! :key do
+    json.value! 'Cache this.'
   end
 end
-```
 
-Will error out, but can easily be rewritten as:
-
-```ruby
-json.boject! do
-  json.cache! :key do
-    json.key do
+# or just the value
+json.object! do
+  json.key do
+    json.cache! :key do
       json.value! 'Cache this.'
     end
   end
 end
 ```
+
+The two cache different bytes. Over the key, the fragment is a sequence of
+pairs (`"key":"Cache this."`) and can cover several keys at once. Under the
+key, it is a bare value (`"Cache this."`), which is not tied to the key it was
+written for -- so the same fragment is reusable anywhere a value belongs, and
+is interchangeable between the encoders.
 
 Keys can be auto formatted using `key_format!`, this can be used to convert
 keynames from the standard ruby_format to camelCase:

@@ -73,15 +73,20 @@ class TurboStreamer::Template < TurboStreamer
   #   json.cache! ['v1', @person], expires_in: 10.minutes do
   #     json.extract! @person, :name, :age
   #   end
+  # 
+  # A miss renders straight into the document -- capture copies the bytes as
+  # they go out rather than diverting them -- so only a hit has anything to
+  # splice. Injecting on both paths would emit a miss twice.
   def cache!(key=nil, options={})
-    if @context.controller.perform_caching
-      value = _cache_fragment_for(key, options) do
-        _capture { _scope { yield self }; }
-      end
+    return yield unless @context.controller.perform_caching
 
-      inject!(value)
+    key = _cache_key(key, options)
+    if (cached = _read_fragment_cache(key, options))
+      inject!(cached)
     else
-      yield
+      _write_fragment_cache(key, options) do
+        _capture { _scope { yield self } }
+      end
     end
   end
   
@@ -104,10 +109,9 @@ class TurboStreamer::Template < TurboStreamer
           if results[key]
             inject!(results[key])
           else
-            value = _write_fragment_cache(key, options) do
+            _write_fragment_cache(key, options) do
               _capture { _scope { yield keys_to_collection_map[key] } }
             end
-            inject!(value)
           end
         end
       end
@@ -140,11 +144,6 @@ class TurboStreamer::Template < TurboStreamer
       result[_cache_key(cache_key, options)] = item
       result
     end
-  end
-
-  def _cache_fragment_for(key, options, &block)
-    key = _cache_key(key, options)
-    _read_fragment_cache(key, options) || _write_fragment_cache(key, options, &block)
   end
 
   def _read_multi_fragment_cache(keys, options = nil)

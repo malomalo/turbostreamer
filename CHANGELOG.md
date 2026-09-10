@@ -74,6 +74,30 @@ Unreleased
   encoder. Whether it happened depended on the random seed, so a green run did
   not mean the Wankel encoder had been exercised.
 
+* The Wankel encoder refuses the same malformed shapes Oj's writer already
+  refused, rather than writing broken JSON: a key inside an array (`["a",1]`
+  from `merge!`-ing a Hash into an array), a key never given a value (`{"a"}`)
+  and a value written without a key (`{"1"}`). All raise `::ArgumentError`
+  saying what could not be written and where.
+
+* `capture` copies rather than diverts. A block used to be rendered into a
+  separate writer at the top level and the bytes spliced back in afterwards.
+  Now the block renders where it stands and the bytes are copied as they go out,
+  so a fragment is whatever the document received. `cache!` therefore only splices
+  on a hit: a miss is already in the document.
+
+* `cache!` now works under a key, caching that key's value:
+  `json.author { json.cache!('k') { json.object! { ... } } }`. It used to raise
+  on Oj and emit `{"author"{"a":1}}` on Wankel, because injected bytes go around
+  the writer and the colon a key needs was never written. `inject` now
+  recognises value position and lets the writer place the fragment.
+
+  The cached bytes differ between the two forms, and usefully so. Over a key
+  (`cache!` wrapping the key and its value) the fragment is a sequence of pairs
+  and can cover several keys at once. Under a key it is a bare value, which
+  carries no position -- so it replays anywhere a value belongs, and both
+  encoders now write and read identical fragments.
+
 2.0.0
 -----
 
