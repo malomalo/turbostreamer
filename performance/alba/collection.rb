@@ -230,15 +230,15 @@ class SimpleAMSPostSerializer
 end
 
 require 'turbostreamer'
-TurboStreamer.set_default_encoder(:json, :oj)
 
 class TurbostreamerSerializer
-  def initialize(posts)
+  def initialize(posts, encoder)
     @posts = posts
+    @encoder = encoder
   end
 
   def to_json
-    TurboStreamer.encode do |json|
+    TurboStreamer.encode(encoder: @encoder) do |json|
       json.array! @posts do |post|
         json.object! do
           json.extract! post, :id, :body, :commenter_names
@@ -330,7 +330,8 @@ rails = Proc.new do
 end
 representable = Proc.new { PostsRepresenter.new(posts).to_json }
 simple_ams = Proc.new { SimpleAMS::Renderer::Collection.new(posts, serializer: SimpleAMSPostSerializer).to_json }
-turbostreamer = Proc.new { TurbostreamerSerializer.new(posts).to_json }
+turbostreamer = Proc.new { TurbostreamerSerializer.new(posts, :oj).to_json }
+turbostreamer_wankel = Proc.new { TurbostreamerSerializer.new(posts, :wankel).to_json }
 rabl = Proc.new { Rabl::Renderer.json(posts, "index") }
 jbuilder = Proc.new { JBuilderSerializer.new.render(posts) }
 props_template = Proc.new { PropsTemplateSerializer.new(posts).to_json }
@@ -379,6 +380,7 @@ benchmark_body = lambda do |x|
   x.report(:representable, &representable)
   x.report(:simple_ams, &simple_ams)
   x.report(:turbostreamer, &turbostreamer)
+  x.report(:turbostreamer_wankel, &turbostreamer_wankel)
   x.report(:rabl, &rabl)
   x.report(:jbuilder, &jbuilder)
   x.report(:props_template, &props_template)
@@ -395,7 +397,7 @@ Benchmark.memory(&benchmark_body)
 # --- Show gem versions ---
 
 puts "Gem versions:"
-gems = %w[alba active_model_serializers barley blueprinter fast_serializer jserializer panko_serializer props_template representable simple_ams turbostreamer rabl jbuilder]
+gems = %w[alba active_model_serializers barley blueprinter fast_serializer jserializer panko_serializer props_template representable simple_ams turbostreamer wankel oj rabl jbuilder]
 Bundler.load.specs.each do |spec|
   puts "#{spec.name}: #{spec.version}" if gems.include?(spec.name)
 end

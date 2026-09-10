@@ -184,15 +184,15 @@ class SimpleAMSPostSerializer
 end
 
 require 'turbostreamer'
-TurboStreamer.set_default_encoder(:json, :oj)
 
 class TurbostreamerSerializer
-  def initialize(post)
+  def initialize(post, encoder)
     @post = post
+    @encoder = encoder
   end
 
   def to_json
-    TurboStreamer.encode do |json|
+    TurboStreamer.encode(encoder: @encoder) do |json|
       json.object! do
         json.extract! @post, :id, :body, :commenter_names
 
@@ -249,7 +249,8 @@ primalize = proc { PrimalizePostResource.new(post).to_json }
 rails = Proc.new { ActiveSupport::JSON.encode(post.serializable_hash(include: :comments)) }
 representable = Proc.new { PostRepresenter.new(post).to_json }
 simple_ams = Proc.new { SimpleAMS::Renderer.new(post, serializer: SimpleAMSPostSerializer).to_json }
-turbostreamer = Proc.new { TurbostreamerSerializer.new(post).to_json }
+turbostreamer = Proc.new { TurbostreamerSerializer.new(post, :oj).to_json }
+turbostreamer_wankel = Proc.new { TurbostreamerSerializer.new(post, :wankel).to_json }
 rabl = Proc.new { Rabl::Renderer.json(post, "post") }
 
 # --- Execute the serializers to check their output ---
@@ -289,6 +290,7 @@ Benchmark.ips do |x|
   x.report(:representable, &representable)
   x.report(:simple_ams, &simple_ams)
   x.report(:turbostreamer, &turbostreamer)
+  x.report(:turbostreamer_wankel, &turbostreamer_wankel)
   x.report(:rabl, &rabl)
 
   x.compare!
@@ -309,6 +311,7 @@ Benchmark.memory do |x|
   x.report(:representable, &representable)
   x.report(:simple_ams, &simple_ams)
   x.report(:turbostreamer, &turbostreamer)
+  x.report(:turbostreamer_wankel, &turbostreamer_wankel)
   x.report(:rabl, &rabl)
 
   x.compare!
