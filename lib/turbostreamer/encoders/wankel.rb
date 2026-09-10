@@ -9,7 +9,6 @@ class TurboStreamer
       @stack = []
       @populated = []
       @awaiting_value = false
-      @yajl_consumed_value = false
       @writing_value = false
 
       super(io, {mode: :as_json}.merge(options))
@@ -102,8 +101,7 @@ class TurboStreamer
         self.output.write(':'.freeze)
         # yajl only needs walking past the value if the capture below did not
         # already do it. On a cache hit no capture ran.
-        capture { string("".freeze) } unless @yajl_consumed_value
-        @yajl_consumed_value = false
+        advance_yajl(1)
         @awaiting_value = false
         return self.output.write(string)
       end
@@ -120,14 +118,14 @@ class TurboStreamer
         if @populated.last
           self.output.write(',')
         else
-          capture { string("") }
+          advance_yajl(1)
         end
         @populated[-1] = true
       when :map
         if @populated.last
           self.output.write(',')
         else
-          capture { string(""); string("") }
+          advance_yajl(2)
         end
         @populated[-1] = true
       end
@@ -136,29 +134,45 @@ class TurboStreamer
     end
 
     def capture(to=nil)
+      # Bytes owed from before the capture belong to the document rather than
+      # to the fragment -- including the colon yajl emits for a pending key.
+      flush
+
+      old_output = self.output
+      buffer = to || ::StringIO.new
+      tee = ::TurboStreamer::Tee.new(old_output)
+      tee.push(buffer)
+      self.output = tee
+
+      begin
+        yield
+        flush
+      ensure
+        self.output = old_output
+      end
+
+      result = buffer.string
+      # The colon and any delimiter belong to the position this was rendered
+      # in, not to the fragment, so a replay elsewhere must not carry them.
+      result.delete_prefix!(':')
+      result.delete_prefix!(',')
+      result.delete_suffix!(",")
+      result
+    end
+
+    private
+
+    # Walks yajl through `count` values into a buffer that is thrown away, so
+    # its own element count moves on without those bytes reaching the document.
+    # A fragment spliced in on a cache hit was never rendered through yajl, so
+    # this is what stops yajl emitting a second colon or missing a delimiter.
+    def advance_yajl(count)
       flush
       old_output = self.output
-      # @awaiting_value describes the document, but a capture is a nested one:
-      # a map_open inside the block would otherwise clear the outer key's
-      # pending value and inject would not know the colon is still owed.
-      old_awaiting = @awaiting_value
-      to = to || ::StringIO.new
-      @populated << false
-      self.output = to
-
-      yield
-
+      self.output = ::StringIO.new
+      count.times { string("".freeze) }
       flush
-      # Entered awaiting a value and the block supplied one, so yajl has
-      # already advanced past it -- into `to`, which is discarded.
-      @yajl_consumed_value = old_awaiting && !@awaiting_value
-      # The leading colon is yajl's, emitted because the handle is shared. It
-      # belongs to the position, not to the fragment, so a cached fragment must
-      # not carry it.
-      to.string.delete_prefix(':').delete_prefix(',').delete_suffix(",")
     ensure
-      @populated.pop
-      @awaiting_value = old_awaiting
       self.output = old_output
     end
 

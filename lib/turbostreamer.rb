@@ -7,6 +7,7 @@ class TurboStreamer
   autoload :Handler, 'turbostreamer/handler'
   autoload :Template, 'turbostreamer/template'
   autoload :KeyFormatter, 'turbostreamer/key_formatter'
+  autoload :Tee, 'turbostreamer/tee'
 
   BLANK = ::Object.new
 

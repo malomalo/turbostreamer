@@ -78,6 +78,24 @@ Unreleased
   from `merge!`-ing a Hash into an array), a key never given a value (`{"a"}`)
   and a value written without a key (`{"1"}`). All raise `::ArgumentError`
   saying what could not be written and where.
+* `capture` copies rather than diverts. A block used to be rendered into a
+  separate writer at the top level and the bytes spliced back in afterwards,
+  which is why a fragment of pairs needed a container to stand up in, why the
+  brackets then had to come off again, and why the Oj encoder had to track
+  whether a key was awaiting its value in order to tell the two apart. Instead
+  the block renders where it stands and the bytes are copied as they go out, so
+  a fragment is whatever the document received. `cache!` therefore only splices
+  on a hit: a miss is already in the document.
+
+  The Oj writer cannot be retargeted after construction, so it is built around
+  a `Tee` and copying is switched on for the duration; Wankel has a settable
+  `output`, so it installs one for the capture. Cached bytes are unchanged and
+  still identical between the encoders, so warm caches carry over.
+
+  Worth about +4% on a key-dense document, +3% with nested blocks and +3% on
+  one rendering many collections, mostly from no longer tracking the pending
+  key on every key and value.
+
 * `cache!` now works under a key, caching that key's value:
   `json.author { json.cache!('k') { json.object! { ... } } }`. It used to raise
   on Oj and emit `{"author"{"a":1}}` on Wankel, because injected bytes go around
