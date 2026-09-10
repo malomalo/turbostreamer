@@ -11,139 +11,151 @@ class TurboStreamer
 
     def initialize(io, options={})
       @stack = []
-      @indexes = []
+      @populated = []
 
       @options = {mode: :json, buffer_size: BUFFER_SIZE}.merge(options)
 
+      # An Oj writer cannot be retargeted after construction, so it is handed
+      # a Tee from the start and capture switches copying on. @output stays the
+      # real io, which is what target! hands back.
       @output = io
-      @stream_writer = ::Oj::StreamWriter.new(io, @options)
-      @write_comma_on_next_push = false
+      @tee = Tee.new(io)
+      @stream_writer = ::Oj::StreamWriter.new(@tee, @options)
+      @pending_comma = false
     end
 
     def key(k)
-      # @stack only ever holds :map or :array, so this is just depth > 0.
-      if @write_comma_on_next_push && !@stack.empty?
+      if @pending_comma && @populated.last
         @stream_writer.flush
-        @output.write(",".freeze)
-        @write_comma_on_next_push = false
+        @tee.write(",")
+        
       end
+      @pending_comma = false
       @stream_writer.push_key(k)
     end
 
     def value(v)
-      unless @stack.empty?
-        @indexes[-1] += 1
+      if !@stack.empty?
+        @populated[-1] = true
 
-        if @write_comma_on_next_push
+        if @pending_comma && @populated.last
           @stream_writer.flush
-          @output.write(",".freeze)
-          @write_comma_on_next_push = false
+          @tee.write(",")
+          
         end
+
       end
+      
+      @pending_comma = false
       @stream_writer.push_value(v)
     end
 
     def map_open
-      @stack << :map
-      @indexes << 0
-      if @write_comma_on_next_push
-        @write_comma_on_next_push = false
+      if @pending_comma && @populated.last
+        if @stack.last == :array
+          @stream_writer.flush
+          @tee.write(",")
+        end
+        @pending_comma = false
       end
+      
+      @stack << :map
+      @populated << false
       @stream_writer.push_object
     end
 
     def map_close
-      @indexes.pop
+      @populated.pop
       @stack.pop
       @stream_writer.pop
+
+      if @stack.last
+        @populated[-1] = true
+        @pending_comma = false
+      end
     end
 
     def array_open
       @stack << :array
-      @indexes << 0
-      if @write_comma_on_next_push
-        @write_comma_on_next_push = false
+      @populated << false
+
+      if @pending_comma
+        @stream_writer.flush
+        @tee.write(",")
+        @pending_comma = false
       end
       @stream_writer.push_array
     end
 
     def array_close
-      @indexes.pop
+      @populated.pop
       @stack.pop
       @stream_writer.pop
+
+      if @stack.last
+         @populated[-1] = true
+         @pending_comma = false
+       end
     end
 
     def inject(string)
+      string = string.delete_prefix(',').delete_suffix(",")
+
+      # A comma owed by an enclosing map has to go out first: Oj knows nothing
+      # about it, so it would otherwise land after the fragment.
+      if @pending_comma && @stack.last == :array
+        @stream_writer.flush
+        @tee.write(",")
+        @pending_comma = false
+      end
+
+      # Oj places the fragment itself -- the colon after a key, or an array
+      # delimiter, and the element count with it -- everywhere except a bare
+      # sequence of pairs joining an open map, which is neither a value nor
+      # something with a key of its own. It says so by raising, and is still
+      # usable afterwards, so there is nothing to track in order to ask.
+      begin
+        @stream_writer.push_json(string)
+        @populated[-1] = true if @stack.last == :array
+        return
+      rescue ::StandardError
+      end
+
       @stream_writer.flush
 
-      # It's possible to have
-      # `@write_comma_on_next_push == true` and `@indexes.last > 0`
-      # So there might be double comma written without this flag
-      comma_written = false
-      if @write_comma_on_next_push
-        @output.write(",".freeze)
-        @write_comma_on_next_push = false
-        comma_written = true
+      if @stack.last && @populated.last
+        @tee.write(",")
+      elsif @stack.last
+        @pending_comma = true
+        @populated[-1] = true
       end
 
-      if @stack.last == :array && !string.empty?
-        if @indexes.last > 0
-          self.output.write(",") unless comma_written
-        else
-          @write_comma_on_next_push = true
-        end
-        @indexes[-1] += 1
-      elsif @stack.last == :map && !string.empty?
-        if @indexes.last > 0
-          self.output.write(",") unless comma_written
-        else
-          @write_comma_on_next_push = true
-        end
-        @indexes[-1] += 1
-      end
-
-      self.output.write(string.sub(/\A,/, ''.freeze).chomp(",".freeze).strip)
+      @tee.write(string)
     end
 
     def capture(to=nil)
+      # Bytes owed from before the capture belong to the document rather than
+      # to the fragment -- a pending key's `"author":` among them.
       @stream_writer.flush
 
-      old_writer = @stream_writer
-      old_output = @output
-      @indexes << 0
+      buffer = to || ::StringIO.new
+      @tee.push(buffer)
 
-      @output = (to || ::StringIO.new)
-      @stream_writer = ::Oj::StreamWriter.new(@output, @options)
-
-      # This is to prevent error from OJ streamer
-      # We will strip the brackets afterward
-      if @stack.last == :map
-        @stream_writer.push_object
-      elsif @stack.last == :array
-        @stream_writer.push_array
+      begin
+        yield
+        # Oj buffers, so the fragment is only whole once it has been pushed out.
+        @stream_writer.flush
+      ensure
+        @tee.pop
       end
 
-      yield
-
-      @stream_writer.pop_all
-      @stream_writer.flush
-      result = output.string.sub(/\A,/, ''.freeze).chomp(",".freeze).strip
-
-      # Strip brackets as promised above
-      if @stack.last == :map
-        result = result.sub(/\A{/, ''.freeze).chomp("}".freeze)
-      elsif @stack.last == :array
-        result = result.sub(/\A\[/, ''.freeze).chomp("]".freeze)
-      end
-
-      # Possible for `output.string` to have value like
-      # `[,{"key":"value"}]\n`
-      # Thus the comma must be removed here
-      result.sub(/\A,/, ''.freeze)
-    ensure
-      @indexes.pop
-      @stream_writer = old_writer
-      @output = old_output
+      result = buffer.string
+      result.strip!
+      # The delimiter Oj wrote belongs to the position this was rendered in,
+      # not to the fragment, so a replay somewhere else must not carry it.
+      result.delete_prefix!(',')
+      result.delete_suffix!(",")
+      result
     end
 
     def flush
