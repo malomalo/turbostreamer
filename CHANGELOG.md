@@ -98,6 +98,10 @@ Unreleased
   carries no position -- so it replays anywhere a value belongs, and both
   encoders now write and read identical fragments.
 
+* Added alba's benchmark suite under `performance/alba`, run with
+  `rake performance:alba`. It is the suite whose figures get quoted at
+  TurboStreamer, and the published ones predate 2.0.
+
 2.0.0
 -----
 
