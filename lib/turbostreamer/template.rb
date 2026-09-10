@@ -73,6 +73,7 @@ class TurboStreamer::Template < TurboStreamer
   #   json.cache! ['v1', @person], expires_in: 10.minutes do
   #     json.extract! @person, :name, :age
   #   end
+  # 
   # A miss renders straight into the document -- capture copies the bytes as
   # they go out rather than diverting them -- so only a hit has anything to
   # splice. Injecting on both paths would emit a miss twice.
@@ -80,7 +81,6 @@ class TurboStreamer::Template < TurboStreamer
     return yield unless @context.controller.perform_caching
 
     key = _cache_key(key, options)
-
     if (cached = _read_fragment_cache(key, options))
       inject!(cached)
     else
@@ -109,7 +109,6 @@ class TurboStreamer::Template < TurboStreamer
           if results[key]
             inject!(results[key])
           else
-            # Rendered in place, so there is nothing left to inject.
             _write_fragment_cache(key, options) do
               _capture { _scope { yield keys_to_collection_map[key] } }
             end
