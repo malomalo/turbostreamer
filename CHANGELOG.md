@@ -86,6 +86,11 @@ Unreleased
   so a fragment is whatever the document received. `cache!` therefore only splices
   on a hit: a miss is already in the document.
 
+  `inject` still tracks whether a key is awaiting its value, rather than asking
+  Oj by attempting the write and catching the refusal. Asking cost an exception
+  on every cache hit that replays a sequence of pairs -- the shape `cache!`
+  produces when it wraps a key -- which was 19% of the cached 22KB benchmark.
+
 * `cache!` now works under a key, caching that key's value:
   `json.author { json.cache!('k') { json.object! { ... } } }`. It used to raise
   on Oj and emit `{"author"{"a":1}}` on Wankel, because injected bytes go around
