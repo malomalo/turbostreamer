@@ -200,16 +200,22 @@ class TurboStreamerTest < ActiveSupport::TestCase
     assert_equal([nil, 1, true, false, "string"], result)
   end
 
-  test 'array! with a nil collection' do
-    result = jbuild do |json|
-      json.object! do
-        json.comments nil do |comment|
-          json.child! 1
+  test 'array! with a nil collection and a block raises' do
+    error = assert_raises(::ArgumentError) do
+      jbuild do |json|
+        json.object! do
+          json.comments nil do |comment|
+            json.child! 1
+          end
         end
       end
     end
 
-    assert_equal({'comments' => []}, result)
+    assert_equal 'nil is not Array-like.', error.message
+  end
+
+  test 'array! with a nil collection and no block is an empty array' do
+    assert_equal([], jbuild { |json| json.array! nil })
   end
 
   test 'array! block calling child! with a collection' do
@@ -253,6 +259,84 @@ class TurboStreamerTest < ActiveSupport::TestCase
     end
 
     assert_equal([[2, 4]], result)
+  end
+
+  test 'a non-eachable value given with a block raises' do
+    [{name: 'one'}, 5, 'str', nil].each do |value|
+      assert_raises(::ArgumentError, "for #{value.class}") do
+        jbuild { |json| json.array! { json.child!(value) { json.value! 1 } } }
+      end
+
+      assert_raises(::ArgumentError, "for #{value.class}") do
+        jbuild { |json| json.object! { json.things(value) { json.value! 1 } } }
+      end
+
+      assert_raises(::ArgumentError, "for #{value.class}") do
+        jbuild { |json| json.array!(value) { json.value! 1 } }
+      end
+    end
+  end
+
+
+  # Attributes and a block both say how to render each element, so one had to
+  # lose -- the block did, silently, which made a typo look like it worked.
+  # Parenthesised because `json.things LIST, :name { ... }` is a SyntaxError;
+  # `do ... end` is the other spelling that binds the block to the right call.
+  test 'a key given attributes and a block raises' do
+    list = [{id: 1, name: 'one'}, {id: 2, name: 'two'}]
+
+    error = assert_raises(::ArgumentError) do
+      jbuild do |json|
+        json.object! do
+          json.things(list, :name) { |x| json.child! x[:id] }
+        end
+      end
+    end
+
+    assert_includes error.message, '[:name]'
+  end
+
+  test 'child! given attributes and a block raises' do
+    list = [{id: 1, name: 'one'}, {id: 2, name: 'two'}]
+
+    assert_raises(::ArgumentError) do
+      jbuild do |json|
+        json.array! do
+          json.child!(list, :name) { |x| json.child! x[:id] }
+        end
+      end
+    end
+  end
+
+  test 'array! given attributes and a block raises' do
+    list = [{id: 1, name: 'one'}, {id: 2, name: 'two'}]
+
+    assert_raises(::ArgumentError) do
+      jbuild { |json| json.array!(list, :name) { |x| json.child! x[:id] } }
+    end
+  end
+
+  # The call is what conflicts, not the data, so a nil collection raises too
+  # rather than quietly rendering [].
+  test 'a nil collection given attributes and a block still raises' do
+    assert_raises(::ArgumentError) do
+      jbuild do |json|
+        json.object! { json.things(nil, :name) { |x| json.child! x } }
+      end
+    end
+  end
+
+  # Either one alone is fine, and stays fine.
+  test 'attributes without a block, and a block without attributes' do
+    list = [{id: 1, name: 'one'}, {id: 2, name: 'two'}]
+
+    assert_equal({'things' => [{'name' => 'one'}, {'name' => 'two'}]}, jbuild { |json|
+      json.object! { json.things list, :name }
+    })
+
+    assert_equal({'things' => [1, 2]}, jbuild { |json|
+      json.object! { json.things(list) { |x| json.child! x[:id] } }
+    })
   end
 
   test 'array! with a collection and attributes to pluck from each' do
@@ -337,7 +421,7 @@ class TurboStreamerTest < ActiveSupport::TestCase
   end
 
   test 'merge! a value with unexpected class in an object' do
-    assert_raises(TurboStreamer::Errors::MergeError) do
+    assert_raises(::ArgumentError) do
       jbuild do |json|
         json.object! do
           json.set! :author do

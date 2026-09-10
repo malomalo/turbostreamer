@@ -16,6 +16,88 @@ Unreleased
   emitted a `"null!"` key whose value was an inspected `Object`.
 * Documented that `ActionController::API` silently skips layouts unless
   `ActionView::Layouts` is included.
+* **Breaking:** `partial!` is now `partial!(name, locals: nil, **render_options)`.
+  The partial name is the first argument, template locals go in `locals:`, and
+  every other keyword is passed to Action View as a render option:
+  `json.partial! 'post', locals: { post: @post }`. Previously bare keywords were
+  locals and the name could be given as a `partial:` option.
+
+  Nothing is reserved, so options TurboStreamer does not know about -- `cached:`,
+  `layout:`, whatever Action View adds next -- reach it anyway, and a local may
+  be named `formats` or `object` without being mistaken for an option. Both
+  wrong shapes name the call that was meant.
+  `json.array! @posts, partial: 'post', as: :post` is unaffected.
+* `partial!` no longer writes to anything the caller passed it. `:as` was
+  deleted out of the caller's locals and the builder stored in them, so
+  rendering twice with one hash lost `:as` on the second call and rendered a
+  collection differently. The options hash itself was written to as well,
+  gaining `:handlers` and a `:locals` holding the builder.
+* Covered the failure mode when a partial exists for another handler but not
+  for `:streamer`. Partial lookup is restricted to `:streamer`, which is what
+  makes that raise `MissingTemplate` instead of rendering the other handler's
+  template -- whose output `partial!` discards, since the builder writes to the
+  stream itself, so the node would simply be absent from the response.
+
+* Encoder options configured for an encoder now apply whether it is named by
+  symbol or by class. `encoder: TurboStreamer::OjEncoder` found no options and
+  silently dropped whatever was set for `:oj` -- including the railtie's
+  `mode: :rails`, and so its HTML escaping -- where `encoder: :oj` kept them.
+
+* `has_default_encoder_options?` no longer reports true for an encoder merely
+  because something was rendered with it. Building a builder read through the
+  options Hash's default proc, which assigns as it reads.
+
+* **Breaking:** the calls this library refuses raise Ruby's `::ArgumentError`.
+  The `TurboStreamer::Errors` module and `Errors::MergeError` are gone
+
+* A key given no value, block or attributes on its own (e.g. `json.foo`) now
+  raises `ArgumentError` naming the key.
+
+* A value that is not a collection or array like with a block now raises
+  `ArgumentError` naming its class.
+
+* Attributes and a block given together now raise `ArgumentError` naming the
+  attributes (e.g. `json.comments(@cs, :body) { |c| ... }`).
+
+* Fixed the separator around injected JSON -- and so around `cache!`, which
+  splices cached bytes -- in both encoders. A cached fragment beside a
+  normally-rendered sibling in an array emitted `[{...}{...}]`, which is not
+  valid JSON. On the Wankel encoder two cases were silent rather than loud:
+  `[1,2]` came back as `[12]`, valid JSON carrying the wrong value. Both
+  encoders now track whether an open container already holds something, and
+  the Oj encoder hands array fragments to `Oj::StreamWriter#push_json` so the
+  writer places the delimiter itself.
+* Tests no longer leak TurboStreamer's class-level configuration into each
+  other. `rake test:wankel` could silently run most of the suite on Oj: setting
+  the default encoder to `:oj` loads Oj, and a teardown that blanked the
+  defaults left `default_encoder_for` falling through to the first loaded
+  encoder. Whether it happened depended on the random seed, so a green run did
+  not mean the Wankel encoder had been exercised.
+
+* The Wankel encoder refuses the same malformed shapes Oj's writer already
+  refused, rather than writing broken JSON: a key inside an array (`["a",1]`
+  from `merge!`-ing a Hash into an array), a key never given a value (`{"a"}`)
+  and a value written without a key (`{"1"}`). All raise `::ArgumentError`
+  saying what could not be written and where.
+
+* `capture` copies rather than diverts. A block used to be rendered into a
+  separate writer at the top level and the bytes spliced back in afterwards.
+  Now the block renders where it stands and the bytes are copied as they go out,
+  so a fragment is whatever the document received. `cache!` therefore only splices
+  on a hit: a miss is already in the document.
+
+* `cache!` now works under a key, caching that key's value:
+  `json.author { json.cache!('k') { json.object! { ... } } }`. It used to raise
+  on Oj and emit `{"author"{"a":1}}` on Wankel, because injected bytes go around
+  the writer and the colon a key needs was never written. `inject` now
+  recognises value position and lets the writer place the fragment.
+
+  The cached bytes differ between the two forms, and usefully so. Over a key
+  (`cache!` wrapping the key and its value) the fragment is a sequence of pairs
+  and can cover several keys at once. Under a key it is a bare value, which
+  carries no position -- so it replays anywhere a value belongs, and both
+  encoders now write and read identical fragments.
+
 * Added alba's benchmark suite under `performance/alba`, run with
   `rake performance:alba`. It is the suite whose figures get quoted at
   TurboStreamer, and the published ones predate 2.0.

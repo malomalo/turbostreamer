@@ -7,7 +7,7 @@ class TurboStreamer
   autoload :Handler, 'turbostreamer/handler'
   autoload :Template, 'turbostreamer/template'
   autoload :KeyFormatter, 'turbostreamer/key_formatter'
-  autoload :Errors, 'turbostreamer/errors'
+  autoload :Tee, 'turbostreamer/tee'
 
   BLANK = ::Object.new
 
@@ -31,17 +31,18 @@ class TurboStreamer
     @output_buffer = options[:output_buffer] || ::StringIO.new
     if options[:encoder].is_a?(Symbol)
       @encoder = TurboStreamer.get_encoder(options[:mime] || :json, options[:encoder])
-      @encoder_options = @@encoder_options[options[:encoder]]
+      @encoder_options = TurboStreamer.default_encoder_options(options[:encoder])
     elsif options[:encoder].nil?
       @encoder = TurboStreamer.default_encoder_for(options[:mime] || :json)
       if encoder_symbol = TurboStreamer.encoder_symbol_for(options[:mime] || :json, @encoder)
-        @encoder_options = @@encoder_options[encoder_symbol]
+        @encoder_options = TurboStreamer.default_encoder_options(encoder_symbol)
       else
         @encoder_options = {}
       end
     else
       @encoder = options[:encoder]
-      @encoder_options = {}
+      encoder_symbol = TurboStreamer.encoder_symbol_for(options[:mime] || :json, @encoder)
+      @encoder_options = encoder_symbol ? TurboStreamer.default_encoder_options(encoder_symbol) : {}
     end
 
     @encoder = @encoder.new(@output_buffer, @encoder_options)
@@ -156,31 +157,32 @@ class TurboStreamer
     @encoder.array_close
   end
 
-  def set!(key, value = BLANK, *args, &block)
+  def set!(key, *args, &block)
     @encoder.key(_key(key))
 
+    # `block` is a free local read where `args.size` needs the array and an
+    # opt_size, so testing it first lets both common shapes short-circuit
+    # before touching args at all.
     if block
-      if !_blank?(value)
-        # json.comments @post.comments { |comment| ... }
-        # { "comments": [ { ... }, { ... } ] }
-        _scope { array!(value, &block) }
-      else
-        # json.comments { ... }
-        # { "comments": ... }
-        _scope(&block)
-      end
+      # json.comments { ... }          =>  { "comments": ... }
+      # json.comments(@cs) { |c| ... } =>  { "comments": [ { ... }, { ... } ] }
+      args.empty? ? _scope(&block) : _scope { array!(*args, &block) }
+    elsif args.size == 1
+      # json.age 32                    =>  { "age": 32 }
+      @encoder.value(args[0])
     elsif args.empty?
-      # json.age 32
-      # { "age": 32 }
-      @encoder.value(value)
-    elsif _eachable_arguments?(value, *args)
+      # json.comments                  =>  ArgumentError
+      raise ::ArgumentError, "No value given for `#{key}`."
+    elsif _eachable?(args[0])
       # json.comments @post.comments, :content, :created_at
       # { "comments": [ { "content": "hello", "created_at": "..." }, { "content": "world", "created_at": "..." } ] }
-      _scope{ array!(value, *args) }
+      _scope{ array!(*args) }
     else
       # json.author @post.creator, :name, :email_address
       # { "author": { "name": "David", "email_address": "david@thinking.com" } }
-      object!{ _extract(value, args) }
+      # shift rather than args[1..]: the splat is this method's own array, so
+      # taking the head off it hands _extract the tail without a copy.
+      object!{ _extract(args.shift, args) }
     end
   end
 
@@ -195,7 +197,7 @@ class TurboStreamer
         value!(value)
       end
     else
-      raise Errors::MergeError.build(hash_or_array)
+      raise ::ArgumentError, "Can't merge #{hash_or_array.inspect}"
     end
   end
 
@@ -314,11 +316,19 @@ class TurboStreamer
         end
       end
 
-      raise ArgumentError, "Could not find an adapter to use"
+      raise ::ArgumentError, "Could not find an encoder for #{mime.inspect}"
     end
   end
 
   def _extract_collection(collection, *attributes, &block)
+    if block
+      if !attributes.empty?
+        raise ::ArgumentError, "Attributes #{attributes.inspect} cannot be given with a block."
+      elsif !_eachable?(collection)
+        raise ::ArgumentError, "#{collection.inspect} is not Array-like."
+      end
+    end
+
     if collection.nil?
       # noop
     elsif block
@@ -353,24 +363,20 @@ class TurboStreamer
   #   json.comments(@post.comments) do |comment|
   #     json.content comment.formatted_content
   #   end
-  def child!(value = BLANK, *args, &block)
+  def child!(*args, &block)
     if block
-      if _eachable_arguments?(value, *args)
-        # json.child! comments { |c| ... }
-        _scope { array!(value, &block) }
-      else
-        # json.child! { ... }
-        # [...]
-        _scope(&block)
-      end
+      # json.child! { ... }               =>  [ ... ]
+      # json.child!(comments) { |c| ... } =>  [ [ ... ] ]
+      args.empty? ? _scope(&block) : _scope { array!(*args, &block) }
+    elsif args.size == 1
+      value!(args[0])
     elsif args.empty?
-      value!(value)
-    elsif _eachable_arguments?(value, *args)
-      _scope{ array!(value, *args) }
+      raise ::ArgumentError, "No value given for `child!`."
+    elsif _eachable?(args[0])
+      _scope{ array!(*args) }
     else
-      object!{ _extract(value, args) }
+      object!{ _extract(args.shift, args) }
     end
-
   end
 
   # Encodes the current builder as JSON.
@@ -423,7 +429,11 @@ class TurboStreamer
     @key_formatter = parent_formatter
   end
 
-  def _eachable_arguments?(value, *args)
+  # Deliberately takes one argument and no splat: calling a method that has a
+  # rest parameter allocates the rest array every time, and this is asked once
+  # per collection rendered and once per set!/child! that has to work out what
+  # its arguments mean.
+  def _eachable?(value)
     value.respond_to?(:each) && !value.is_a?(Hash)
   end
 
