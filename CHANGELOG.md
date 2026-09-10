@@ -73,11 +73,19 @@ Unreleased
   defaults left `default_encoder_for` falling through to the first loaded
   encoder. Whether it happened depended on the random seed, so a green run did
   not mean the Wankel encoder had been exercised.
+
 * The Wankel encoder refuses the same malformed shapes Oj's writer already
   refused, rather than writing broken JSON: a key inside an array (`["a",1]`
   from `merge!`-ing a Hash into an array), a key never given a value (`{"a"}`)
   and a value written without a key (`{"1"}`). All raise `::ArgumentError`
   saying what could not be written and where.
+
+* `capture` copies rather than diverts. A block used to be rendered into a
+  separate writer at the top level and the bytes spliced back in afterwards.
+  Now the block renders where it stands and the bytes are copied as they go out,
+  so a fragment is whatever the document received. `cache!` therefore only splices
+  on a hit: a miss is already in the document.
+
 * `cache!` now works under a key, caching that key's value:
   `json.author { json.cache!('k') { json.object! { ... } } }`. It used to raise
   on Oj and emit `{"author"{"a":1}}` on Wankel, because injected bytes go around
