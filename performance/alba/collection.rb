@@ -330,7 +330,7 @@ rails = Proc.new do
 end
 representable = Proc.new { PostsRepresenter.new(posts).to_json }
 simple_ams = Proc.new { SimpleAMS::Renderer::Collection.new(posts, serializer: SimpleAMSPostSerializer).to_json }
-turbostreamer = Proc.new { TurbostreamerSerializer.new(posts, :oj).to_json }
+turbostreamer_oj = Proc.new { TurbostreamerSerializer.new(posts, :oj).to_json }
 turbostreamer_wankel = Proc.new { TurbostreamerSerializer.new(posts, :wankel).to_json }
 rabl = Proc.new { Rabl::Renderer.json(posts, "index") }
 jbuilder = Proc.new { JBuilderSerializer.new.render(posts) }
@@ -352,7 +352,8 @@ parsed_correct = JSON.parse(correct)
   rails: rails,
   representable: representable,
   simple_ams: simple_ams,
-  turbostreamer: turbostreamer,
+  turbostreamer_oj: turbostreamer_oj,
+  turbostreamer_wankel: turbostreamer_wankel,
   rabl: rabl,
   jbuilder: jbuilder,
   props_template: props_template
@@ -379,7 +380,7 @@ benchmark_body = lambda do |x|
   x.report(:rails, &rails)
   x.report(:representable, &representable)
   x.report(:simple_ams, &simple_ams)
-  x.report(:turbostreamer, &turbostreamer)
+  x.report(:turbostreamer_oj, &turbostreamer_oj)
   x.report(:turbostreamer_wankel, &turbostreamer_wankel)
   x.report(:rabl, &rabl)
   x.report(:jbuilder, &jbuilder)

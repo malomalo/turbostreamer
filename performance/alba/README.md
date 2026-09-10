@@ -58,15 +58,15 @@ Apple M5 Pro, ruby 4.0.5 +YJIT +PRISM, YJIT enabled, `Oj.optimize_rails`
 enabled, alba 4.0.0, props_template 1.0.1, oj 3.17.6, wankel 0.6.2.1.
 
 ```
-                   panko:      921.3 i/s
-           turbostreamer:      734.3 i/s - 1.25x  slower
-            barley_cache:      720.9 i/s - 1.28x  slower
-          props_template:      672.7 i/s - 1.37x  slower
-                    alba:      655.8 i/s - 1.40x  slower
-                  barley:      645.1 i/s - 1.43x  slower
-                jbuilder:      537.5 i/s - 1.71x  slower
-                    rabl:      287.8 i/s - 3.20x  slower
-    turbostreamer_wankel:      253.8 i/s - 3.63x  slower
+                   panko:      918.9 i/s
+        turbostreamer_oj:      725.6 i/s - 1.27x  slower
+            barley_cache:      721.4 i/s - 1.27x  slower
+          props_template:      683.9 i/s - 1.34x  slower
+                  barley:      651.1 i/s - 1.41x  slower
+                    alba:      635.5 i/s - 1.45x  slower
+                jbuilder:      534.0 i/s - 1.72x  slower
+                    rabl:      285.8 i/s - 3.21x  slower
+    turbostreamer_wankel:      264.9 i/s - 3.47x  slower
 ```
 
 `benchmark-memory`, same run:
@@ -74,7 +74,7 @@ enabled, alba 4.0.0, props_template 1.0.1, oj 3.17.6, wankel 0.6.2.1.
 ```
                panko:     258858 allocated
       props_template:     457698 allocated - 1.77x more
-       turbostreamer:     466120 allocated - 1.80x more
+    turbostreamer_oj:     466120 allocated - 1.80x more
 turbostreamer_wankel:     550004 allocated - 2.12x more
                 alba:     817961 allocated - 3.16x more
             jbuilder:     946201 allocated - 3.66x more
@@ -82,20 +82,22 @@ turbostreamer_wankel:     550004 allocated - 2.12x more
 
 Three things worth noting, all bounded:
 
-* **`turbostreamer` here is the Oj encoder; `turbostreamer_wankel` is Wankel.**
-  They are reported separately, as `dirk/` and `rolftimmermans/` do, because the
-  gap is not small: 734 i/s against 254, and 466k allocated against 550k. A
-  figure quoted as "turbostreamer" without saying which encoder produced it is
-  not a figure about this library.
+* **The two encoders are reported separately**, as `dirk/` and
+  `rolftimmermans/` do, because the gap is not small: 726 i/s against 265, and
+  466k allocated against 550k. Neither is named `turbostreamer`, so a figure
+  taken from this table always says which encoder produced it. The suite also
+  checks both against alba's own output, so a rename or an encoder change that
+  altered the JSON would fail the run rather than quietly skew a number.
 * **Ordering has changed** against upstream's published table, which has
   turbostreamer behind both props_template and alba; on Oj it is second only to
   panko, ahead of both. Allocations moved too — 641,720 for 1.11.0 in upstream's
   table, 466,120 here, now level with props_template.
 * **The absolute numbers are not comparable to upstream's**, which were taken on
-  an M4 Pro with ruby 3.4.8 and alba 3.10.0. panko scores 921 i/s here against
+  an M4 Pro with ruby 3.4.8 and alba 3.10.0. panko scores 919 i/s here against
   1267 there, so this machine is slower overall — only the ordering *within* a
   run is a fair comparison, and that is the only claim to make from it.
 
-Two consecutive runs, on a machine at load average ~6, agreed on the ordering
-and to within 1% on every entry except `turbostreamer_wankel`, which moved 4%
-(264 → 254 i/s). Re-run before quoting anything narrower than the ordering.
+Three consecutive runs, on a machine at load average 6–10, agreed on the
+ordering throughout and to within 1.5% on `turbostreamer_oj` (726–734 i/s) and
+4% on `turbostreamer_wankel` (254–265 i/s). Re-run before quoting anything
+narrower than the ordering.
