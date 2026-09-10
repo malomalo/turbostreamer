@@ -18,9 +18,6 @@ class TurboStreamer
     # does -- a key emitted into an array, or a key never given a value, came
     # out as malformed JSON rather than an error. Check here so both encoders
     # refuse the same things.
-    # Yajl reports nothing about shape, so these are ours to describe. Kept
-    # here rather than in a shared error class because the context comes from
-    # @stack, which is this encoder's own state.
     def structure_error(what, context = @stack.last)
       where = case context
               when :array       then 'inside an array'
@@ -50,8 +47,7 @@ class TurboStreamer
         raise structure_error('a value without a key')
       end
 
-      # @stack only ever holds :map or :array, so this is just depth > 0.
-      @populated[-1] = true unless @stack.empty?
+      @populated[-1] = true if !@stack.empty?
       @awaiting_value = false
       @writing_value = true
 
@@ -95,12 +91,8 @@ class TurboStreamer
     def inject(string)
       flush
 
-      # A key is written and its value is what is being injected: the colon is
-      # ours, since these bytes never reach yajl.
       if @awaiting_value
         self.output.write(':'.freeze)
-        # yajl only needs walking past the value if the capture below did not
-        # already do it. On a cache hit no capture ran.
         advance_yajl(1)
         @awaiting_value = false
         return self.output.write(string)
