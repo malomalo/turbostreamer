@@ -40,12 +40,10 @@ class TurboStreamer
       if !@stack.empty?
         @populated[-1] = true
 
-        if @pending_comma && @populated.last
+        if @pending_comma
           @stream_writer.flush
           @tee.write(",")
-          
         end
-
       end
       
       @pending_comma = false
