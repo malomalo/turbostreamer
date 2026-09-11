@@ -470,8 +470,8 @@ The benchmark gems live in an optional Bundler group, so install them first:
 To run the benchmarks: `bundle exec rake performance` (from the repository
 root). It produces four reports — two document shapes, each run with fragment
 caching off and on — and prints a table of each implementation's median i/s. The
-reports below were generated on macOS 26.5.1, Apple M5 Pro; the i/s figures
-quoted in the text are medians of three runs.
+reports below, and the i/s figures quoted in the text, come from one run on
+macOS 26.5.1, Apple M5 Pro.
 
 A third suite, vendored from alba, compares TurboStreamer against sixteen other
 serializers rather than measuring document shapes. It carries its own bundle, so
@@ -484,11 +484,9 @@ rendered at all, so the case worth measuring is a cached fragment with live data
 around it. With caching off, nothing is reused and the comparison is of the
 builders themselves.
 
-Caching is toggled with the `PERFORM_CACHING` environment variable. It has to be
-set on `ActionController::Base` and on the render context together — RABL
-consults the former through `Rabl::Helpers#template_cache_configured?`, while
-TurboStreamer, props_template and jbuilder ask the controller they are rendered
-with. Setting only one leaves the other library's caching silently disabled.
+Caching is toggled with the `PERFORM_CACHING` environment variable, which each
+library reads from the render context it is given (a fake controller in the
+suites).
 
 props_template additionally requires the render context to define
 `cache_fragment_name`, which it calls unguarded where TurboStreamer and jbuilder
@@ -496,32 +494,29 @@ fall back to the bare key. The suites give it that method on a subclass rather
 than on the shared context, so the other implementations keep the code path they
 had before it was added.
 
-All five implementations produce the same document — byte-identical output
+All four implementations produce the same document — byte-identical output
 (the two Oj-backed builders append a trailing newline), the same subtree cached
 as the fragment, and the same live values rendered outside it. Each library
-caches under its own key and namespace, so none can read another's entry. RABL
-runs with `cache_sources` enabled so no implementation touches the filesystem
-inside the measured loop.
+caches under its own key and namespace, so none can read another's entry, and
+none touches the filesystem inside the measured loop.
 
 Reading the numbers: these are microbenchmarks of the render layer. Every value
 is precomputed before the measured loop, so builder overhead is nearly the
 whole cost of an iteration. In an application, attribute access, type casting
 and the rest of the request add the same absolute cost to every library, which
-narrows every relative gap — most of all uncached, where RABL's lead comes from
-handing a finished Ruby Hash to Oj's single C-level pass rather than from a
-faster builder; among the builder DSLs, TurboStreamer's Oj encoder and
-props_template are effectively tied uncached and trade the lead by document
-size — TurboStreamer ahead on the 22KB document (1.12x), props_template on the
-5MB one (1.04x).
+narrows every relative gap. Uncached, TurboStreamer's Oj encoder and
+props_template — the two direct-to-encoder builders — are effectively tied and
+trade the lead by document size: TurboStreamer ahead on the 22KB document
+(1.15x), props_template on the 5MB one (1.11x). jbuilder trails both.
 
 With a cached fragment the field splits by *what* each library caches, not by
 how fast it builds. TurboStreamer and props_template both cache serialized
-bytes and splice them into the output, so a hit costs a copy; RABL and jbuilder
-cache the data structure and deserialize and re-serialize it on every hit. That
+bytes and splice them into the output, so a hit costs a copy; jbuilder caches
+the data structure and deserializes and re-serializes it on every hit. That
 is worth an order of magnitude or more, and it puts props_template — the other
 direct-to-encoder builder — in the same band as TurboStreamer rather than with
-the other two. TurboStreamer is still the fastest cached in both suites — its
-Oj encoder leads props_template by 1.18x on the 22KB document and 2.64x on the
+jbuilder. TurboStreamer is still the fastest cached in both suites — its
+Oj encoder leads props_template by 1.36x on the 22KB document and 2.88x on the
 5MB one. The GC panels are normalized per iteration, not per
 second — implementations complete vastly different amounts of work in the same
 five seconds, and a per-second axis would make the fastest one look the most
@@ -536,26 +531,24 @@ cached fragment; `generated_at`, `request_id` and `total_comments` stay live.
 The document comes from [rolftimmermans](https://github.com/rolftimmermans)'
 [jbuilder#54](https://github.com/rails/jbuilder/pull/54) (2012).
 
-<img src="https://raw.githubusercontent.com/malomalo/turbostreamer/master/performance/rolftimmermans/report-uncached.png" width="600" alt="rolftimmermans without caching: iterations/sec, GC and RSS for rabl, jbuilder, props_template and turbostreamer">
+<img src="https://raw.githubusercontent.com/malomalo/turbostreamer/master/performance/rolftimmermans/report-uncached.png" width="600" alt="rolftimmermans without caching: iterations/sec, GC and RSS for turbostreamer, props_template and jbuilder">
 
-Rebuilt every iteration, RABL leads by roughly 3.9x (10,338 i/s against
-TurboStreamer's 2,664): its template evaluates to a Ruby Hash that Oj serializes
-in one C-level pass, where the builder DSLs walk the same structure through
-roughly 800 Ruby method calls. At this size there is nothing to stream. The
-three builder DSLs land close together — TurboStreamer 2,664, props_template
-2,378, jbuilder 1,794.
+Rebuilt every iteration, the builders land close together and there is nothing
+to stream at this size. TurboStreamer's Oj encoder leads at 3,911 i/s, with
+props_template just behind at 3,392 (1.15x), then jbuilder at 2,573 and
+TurboStreamer's Wankel encoder at 2,041. Each walks the same structure through
+roughly 800 Ruby method calls per document.
 
-<img src="https://raw.githubusercontent.com/malomalo/turbostreamer/master/performance/rolftimmermans/report-cached.png" width="600" alt="rolftimmermans with caching: iterations/sec, GC and RSS for rabl, jbuilder, props_template and turbostreamer">
+<img src="https://raw.githubusercontent.com/malomalo/turbostreamer/master/performance/rolftimmermans/report-cached.png" width="600" alt="rolftimmermans with caching: iterations/sec, GC and RSS for turbostreamer, props_template and jbuilder">
 
-With the fragment cached the ranking inverts and the field splits in two, along
-the line of *what* each library caches. TurboStreamer (99,855 i/s) and
-props_template (84,804) cache the fragment's serialized JSON and splice those
-bytes into the output, so a hit costs a copy and no serialization. RABL (5,070)
-and jbuilder (4,518) cache the data structure — RABL's key is
-`rabl/article_fragment//hash` — so a hit deserializes the cached objects and
-re-serializes them into the response every time. That is a seventeen- to
-twenty-two-fold difference between the two groups, against 1.18x between the two
-byte-cachers.
+With the fragment cached the ranking shifts and the field splits in two, along
+the line of *what* each library caches. TurboStreamer (149,602 i/s) and
+props_template (109,677) cache the fragment's serialized JSON and splice those
+bytes into the output, so a hit costs a copy and no serialization. jbuilder
+(6,643) caches the data structure, so a hit deserializes the cached objects and
+re-serializes them into the response every time. That is a sixteen- to
+twenty-three-fold difference between the two groups, against 1.36x between the
+two byte-cachers.
 
 ### dirk — 5MB document
 
@@ -567,34 +560,30 @@ The document comes from [dirk](https://github.com/dirk), in
 (2015) — a thread proposing caching improvements, which is why it is shaped
 around a single large cacheable block.
 
-<img src="https://raw.githubusercontent.com/malomalo/turbostreamer/master/performance/dirk/report-uncached.png" width="600" alt="dirk without caching: iterations/sec, GC and RSS for rabl, jbuilder, props_template and turbostreamer">
+<img src="https://raw.githubusercontent.com/malomalo/turbostreamer/master/performance/dirk/report-uncached.png" width="600" alt="dirk without caching: iterations/sec, GC and RSS for turbostreamer, props_template and jbuilder">
 
-Rebuilt every iteration, RABL leads by about 2x (66.3 i/s against
-TurboStreamer's 33.6): one Oj pass over a finished object graph beats roughly
-51,000 Ruby-level DSL calls. The builder DSLs are again close, and closer than
-at 22KB — here props_template (34.9) edges TurboStreamer's Oj encoder (33.6),
-with jbuilder at 23.6. Note the RSS panel, where building the document costs
-every implementation several hundred MB.
+Rebuilt every iteration, the builders are again close, and closer than at 22KB:
+here props_template (51.5 i/s) edges TurboStreamer's Oj encoder (46.1, 1.11x),
+with jbuilder at 37.2 and the Wankel encoder at 29.9. Each walks the object
+graph through roughly 51,000 Ruby-level DSL calls. Note the RSS panel, where
+building the document costs every implementation several hundred MB.
 
-<img src="https://raw.githubusercontent.com/malomalo/turbostreamer/master/performance/dirk/report-cached.png" width="600" alt="dirk with caching: iterations/sec, GC and RSS for rabl, jbuilder, props_template and turbostreamer">
+<img src="https://raw.githubusercontent.com/malomalo/turbostreamer/master/performance/dirk/report-cached.png" width="600" alt="dirk with caching: iterations/sec, GC and RSS for turbostreamer, props_template and jbuilder">
 
 With the fragment cached the same split appears and widens, because the larger
 the cached fragment the more the re-serialization costs. The two byte-cachers
-re-emit 5MB of cached bytes — TurboStreamer 7,210 i/s, props_template 2,731 —
-while RABL (50.9) and jbuilder (42.4) deserialize and re-serialize 5MB of cached
-objects, leaving two orders of magnitude between the groups. At this size a
-cache hit is actually *slower* for RABL than rebuilding from scratch, 50.9
-against 66.3 — the effect reported against jbuilder in
-[jbuilder#259](https://github.com/rails/jbuilder/issues/259), reproduced here.
-The gap between the two byte-cachers also opens up at this size, 2.64x against
-1.18x on the 22KB document. The RSS panel makes the deserialization cost
-visible: jbuilder climbs to ~400MB while completing the *fewest* iterations,
-Marshal-loading the 5MB cached hash on every hit, while TurboStreamer holds
-around 140MB while producing two orders of magnitude more output.
+re-emit 5MB of cached bytes — TurboStreamer 10,165 i/s, props_template 3,527 —
+while jbuilder (79.9) deserializes and re-serializes 5MB of cached objects,
+leaving two orders of magnitude between the groups. The gap between the two
+byte-cachers also opens up at this size, 2.88x against 1.36x on the 22KB
+document. The RSS panel makes the deserialization cost visible: jbuilder climbs
+to ~400MB while completing the *fewest* iterations, Marshal-loading the 5MB
+cached hash on every hit, while TurboStreamer holds around 140MB while producing
+two orders of magnitude more output.
 
 ### alba — TurboStreamer against sixteen other serializers
 
-The two suites above measure document shapes against RABL and jbuilder. This one
+The two suites above measure document shapes against jbuilder and props_template. This one
 is [alba](https://github.com/okuramasafumi/alba)'s own benchmark, vendored
 unchanged apart from reporting both encoders, and it is the suite whose figures
 get quoted at TurboStreamer: alba's README and props_template's both cite

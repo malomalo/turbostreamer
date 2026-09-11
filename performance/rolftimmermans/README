@@ -9,8 +9,8 @@ How this differs from the original
 
 The original was a pure rendering benchmark with no caching: an article with an
 author, 100 references and 100 comments, rebuilt on every iteration. The 2017
-port extended it into a cross-library comparison (rabl, turbostreamer with oj
-and wankel encoders, the analyzer harness).
+port extended it into a cross-library comparison (turbostreamer with its oj and
+wankel encoders, jbuilder and props_template, through the analyzer harness).
 
 Current differences from the original script:
 
@@ -21,10 +21,8 @@ Current differences from the original script:
   instead -- conditional GET, a CDN, or a low-level cache around the payload --
   so the cached mode models the realistic case: a cached fragment with live
   data around it.
-- Caching is toggled by PERFORM_CACHING (see lib.rb and the Rakefile); it must
-  be set on ActionController::Base and the render context together or one
-  library's caching is silently disabled.
+- Caching is toggled by PERFORM_CACHING (see lib.rb and the Rakefile); each
+  library reads it from the render context it is given.
 - All implementations render through the view-layer template classes and emit a
   byte-identical document (dates are a single pre-formatted string), cache the
-  same fragment under the same key, and do no file I/O in the measured loop
-  (rabl runs with cache_sources enabled).
+  same fragment under the same key, and do no file I/O in the measured loop.

@@ -12,5 +12,4 @@ group :performance, optional: true do
   gem 'kalibera'
   gem 'multi_json'
   gem 'props_template'
-  gem 'rabl'
 end

@@ -112,6 +112,11 @@ Unreleased
   `rake performance:alba`. It is the suite whose figures get quoted at
   TurboStreamer, and the published ones predate 2.0.
 
+* Dropped rabl from the `rolftimmermans` and `dirk` performance suites. As a
+  Hash builder handed to Oj in one pass, rather than a streaming builder, it
+  sat in a different category from the direct-to-encoder DSLs the suites are
+  meant to compare, and skewed the reading of the numbers.
+
 2.0.0
 -----
 
