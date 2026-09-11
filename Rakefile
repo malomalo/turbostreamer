@@ -46,7 +46,6 @@ task :performance do
     'turbostreamer/wankel.rb',
     'props_template/oj.rb',
     'jbuilder/oj.rb',
-    'rabl/oj.rb',
   ]
 
   # The plotted labels (and the keys plot returns) drop the .rb extension.

@@ -7,12 +7,9 @@ require 'action_view/testing/resolvers'
 require 'action_controller'
 
 # Fragment caching is driven by PERFORM_CACHING so the suite can be run both
-# ways. It has to be set in two places or the comparison is not like for like:
-# turbostreamer and jbuilder ask the controller they are rendered with, while
-# rabl consults ActionController::Base.perform_caching by way of
-# Rabl::Helpers#template_cache_configured?.
+# ways. turbostreamer, props_template and jbuilder each ask the controller they
+# are rendered with (FakeController below).
 PERFORM_CACHING = ENV.fetch('PERFORM_CACHING', 'true') == 'true'
-ActionController::Base.perform_caching = PERFORM_CACHING
 
 class FakeController
   def perform_caching
