@@ -22,6 +22,7 @@ class TurboStreamer
       @tee = Tee.new(io)
       @stream_writer = ::Oj::StreamWriter.new(@tee, @options)
       @pending_comma = false
+      @awaiting_value = false
     end
 
     def key(k)
@@ -31,6 +32,7 @@ class TurboStreamer
         
       end
       @pending_comma = false
+      @awaiting_value = true
       @stream_writer.push_key(k)
     end
 
@@ -47,6 +49,7 @@ class TurboStreamer
       end
       
       @pending_comma = false
+      @awaiting_value = false
       @stream_writer.push_value(v)
     end
 
@@ -59,6 +62,7 @@ class TurboStreamer
         @pending_comma = false
       end
       
+      @awaiting_value = false
       @stack << :map
       @populated << false
       @stream_writer.push_object
@@ -76,6 +80,7 @@ class TurboStreamer
     end
 
     def array_open
+      @awaiting_value = false
       @stack << :array
       @populated << false
 
@@ -112,13 +117,12 @@ class TurboStreamer
       # Oj places the fragment itself -- the colon after a key, or an array
       # delimiter, and the element count with it -- everywhere except a bare
       # sequence of pairs joining an open map, which is neither a value nor
-      # something with a key of its own. It says so by raising, and is still
-      # usable afterwards, so there is nothing to track in order to ask.
-      begin
+      # something with a key of its own.
+      if @awaiting_value || @stack.last != :map
         @stream_writer.push_json(string)
         @populated[-1] = true if @stack.last == :array
+        @awaiting_value = false
         return
-      rescue ::StandardError
       end
 
       @stream_writer.flush

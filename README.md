@@ -471,6 +471,11 @@ To run the benchmarks: `bundle exec rake performance` (from the repository
 root). It produces four reports — two document shapes, each run with fragment
 caching off and on. The ones below were generated on macOS 26.5.1, Apple M5 Pro.
 
+A third suite, vendored from alba, compares TurboStreamer against sixteen other
+serializers rather than measuring document shapes. It carries its own bundle, so
+it runs separately with `bundle exec rake performance:alba` — see
+[performance/alba/README.md](performance/alba/README.md).
+
 Both suites render live values before and after a cached fragment. A response
 that is cacheable end to end would be cached at the controller rather than
 rendered at all, so the case worth measuring is a cached fragment with live data
@@ -581,6 +586,62 @@ The gap between the two byte-cachers also opens up at this size, 2.76x against
 visible: jbuilder climbs to ~400MB while completing the *fewest* iterations,
 Marshal-loading the 5MB cached hash on every hit, while TurboStreamer holds
 around 100MB while producing two orders of magnitude more output.
+
+### alba — TurboStreamer against sixteen other serializers
+
+The two suites above measure document shapes against RABL and jbuilder. This one
+is [alba](https://github.com/okuramasafumi/alba)'s own benchmark, vendored
+unchanged apart from reporting both encoders, and it is the suite whose figures
+get quoted at TurboStreamer: alba's README and props_template's both cite
+results against **turbostreamer 1.11.0**, which predates 2.0.
+
+100 posts with comments and commenter names, rendered from ActiveRecord. It is
+`benchmark-ips` over seventeen serializers with no caching involved, so it
+measures the builders themselves.
+
+Run of 2026-09-10, ruby 4.0.5 +YJIT +PRISM, `Oj.optimize_rails` enabled, alba
+4.0.0, props_template 1.0.1, oj 3.17.6, wankel 0.6.2.1:
+
+```
+                   panko:      918.9 i/s
+        turbostreamer_oj:      725.6 i/s - 1.27x  slower
+            barley_cache:      721.4 i/s - 1.27x  slower
+          props_template:      683.9 i/s - 1.34x  slower
+                  barley:      651.1 i/s - 1.41x  slower
+                    alba:      635.5 i/s - 1.45x  slower
+                jbuilder:      534.0 i/s - 1.72x  slower
+                    rabl:      285.8 i/s - 3.21x  slower
+    turbostreamer_wankel:      264.9 i/s - 3.47x  slower
+```
+
+`benchmark-memory`, same run:
+
+```
+               panko:     258858 allocated
+      props_template:     457698 allocated - 1.77x more
+    turbostreamer_oj:     466120 allocated - 1.80x more
+turbostreamer_wankel:     550004 allocated - 2.12x more
+                alba:     817961 allocated - 3.16x more
+            jbuilder:     946201 allocated - 3.66x more
+```
+
+The Oj encoder is second only to panko, which is a C extension rather than a
+builder DSL, and it is ahead of both props_template and alba — the reverse of
+upstream's published ordering, which was measured against 1.11.0. Allocations
+moved the same way: 641,720 for 1.11.0 in that table against 466,120 here, now
+level with props_template.
+
+**The Wankel encoder is a long way behind on this shape** — 265 i/s against 726,
+and 550k allocated against 466k. Oj is the encoder TurboStreamer picks when both
+are installed, and on these numbers that is the right default. Wankel also does
+not escape `<`, `>` and `&`, which the railtie's `Oj` configuration does, so its
+output is not safe to embed in a `<script>` tag without escaping it yourself.
+
+Absolute numbers here are not comparable with upstream's, taken on different
+hardware and a different Ruby — panko scores 919 i/s here against 1267 there —
+so only the ordering within a single run means anything. Three consecutive runs
+agreed on the ordering and to within 1.5% on `turbostreamer_oj` and 4% on
+`turbostreamer_wankel`.
 
 Special Thanks & Contributors
 -----------------------------
