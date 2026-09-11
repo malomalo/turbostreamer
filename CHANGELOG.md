@@ -103,6 +103,11 @@ Unreleased
   carries no position -- so it replays anywhere a value belongs, and both
   encoders now write and read identical fragments.
 
+* Added props_template to the `rolftimmermans` and `dirk` performance suites.
+  It is the closest comparison TurboStreamer has -- the other direct-to-encoder
+  builder that caches serialized bytes rather than a structure -- and it was
+  missing from the reports.
+  
 * Added alba's benchmark suite under `performance/alba`, run with
   `rake performance:alba`. It is the suite whose figures get quoted at
   TurboStreamer, and the published ones predate 2.0.

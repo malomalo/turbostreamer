@@ -11,5 +11,6 @@ group :performance, optional: true do
   # analyzer runs benchmark-ips with `stats: :bootstrap`, which needs kalibera.
   gem 'kalibera'
   gem 'multi_json'
+  gem 'props_template'
   gem 'rabl'
 end
