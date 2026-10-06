@@ -3,6 +3,7 @@
 $LOAD_PATH << File.expand_path('../lib', __FILE__)
 
 require 'json'
+require 'tempfile'
 require "minitest/reporters"
 Minitest::Reporters.use! Minitest::Reporters::SpecReporter.new
 
@@ -122,6 +123,16 @@ class ActiveSupport::TestCase
     view = ActionView::Base.with_empty_template_cache.new(lookup_context, {}, nil)
 
     ActionView::TemplateRenderer.new(lookup_context).render(view, template: 'test', layout: layout).body
+  end
+
+  # Renders with no template file at all -- `render plain:`, `html:`, `body:`
+  # or `file:`, which ActionView answers with Template::Text, ::HTML or
+  # ::RawFile. Returns the rendered String.
+  def render_without_template(**options)
+    lookup_context = ActionView::LookupContext.new(ActionView::PathSet.new([]), formats: [:json])
+    view = ActionView::Base.with_empty_template_cache.new(lookup_context, {}, nil)
+
+    ActionView::TemplateRenderer.new(lookup_context).render(view, **options).body
   end
 
 end
