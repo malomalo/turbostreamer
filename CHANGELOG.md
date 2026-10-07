@@ -38,12 +38,6 @@ Unreleased
   template -- whose output `partial!` discards, since the builder writes to the
   stream itself, so the node would simply be absent from the response.
 
-* Fixed `render plain:`, `html:`, `body:` and `file:` raising
-  `NoMethodError: undefined method 'handler'` since 2.0.0. ActionView answers
-  them with `Template::Text`, `::HTML` and `::RawFile`, which have no handler,
-  and the renderers TurboStreamer prepends for layouts asked every template for
-  one before handing it back to ActionView.
-
 * Encoder options configured for an encoder now apply whether it is named by
   symbol or by class. `encoder: TurboStreamer::OjEncoder` found no options and
   silently dropped whatever was set for `:oj` -- including the railtie's
@@ -117,6 +111,15 @@ Unreleased
 * Added alba's benchmark suite under `performance/alba`, run with
   `rake performance:alba`. It is the suite whose figures get quoted at
   TurboStreamer, and the published ones predate 2.0.
+
+2.0.1
+-----
+
+* Fixed `render plain:`, `html:`, `body:` and `file:` raising
+  `NoMethodError: undefined method 'handler'` since 2.0.0. ActionView answers
+  them with `Template::Text`, `::HTML` and `::RawFile`, which have no handler,
+  and the renderers TurboStreamer prepends for layouts asked every template for
+  one before handing it back to ActionView.
 
 2.0.0
 -----
