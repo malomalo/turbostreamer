@@ -37,7 +37,8 @@ Unreleased
   makes that raise `MissingTemplate` instead of rendering the other handler's
   template -- whose output `partial!` discards, since the builder writes to the
   stream itself, so the node would simply be absent from the response.
-* Fix `render plain:`, `html:`, `body:` and `file:` raising
+
+* Fixed `render plain:`, `html:`, `body:` and `file:` raising
   `NoMethodError: undefined method 'handler'` since 2.0.0. ActionView answers
   them with `Template::Text`, `::HTML` and `::RawFile`, which have no handler,
   and the renderers TurboStreamer prepends for layouts asked every template for

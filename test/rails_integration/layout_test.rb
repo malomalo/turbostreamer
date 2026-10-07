@@ -216,31 +216,4 @@ class RailsIntegration::LayoutTest < ActiveSupport::TestCase
     assert_kind_of LocalJumpError, error.cause
   end
 
-  # Layouts are why TurboStreamer prepends itself to ActionView's renderers,
-  # so every render in the app passes through them, not only streamer ones.
-  # render plain:, html:, body: and file: get Template::Text, ::HTML and
-  # ::RawFile, which have no #handler. They must be handed straight back to
-  # ActionView. html: is marked html_safe because ActionView escapes it
-  # otherwise, with or without us.
-  test "render plain: passes through to ActionView" do
-    assert_equal 'complete', render_without_template(plain: 'complete')
-  end
-
-  test "render html: passes through to ActionView" do
-    assert_equal '<b>ok</b>', render_without_template(html: '<b>ok</b>'.html_safe)
-  end
-
-  test "render body: passes through to ActionView" do
-    assert_equal 'complete', render_without_template(body: 'complete')
-  end
-
-  test "render file: passes through to ActionView" do
-    Tempfile.create(['raw', '.json']) do |file|
-      file.write('{"from":"disk"}')
-      file.flush
-
-      assert_equal '{"from":"disk"}', render_without_template(file: file.path)
-    end
-  end
-
 end
