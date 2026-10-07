@@ -6,7 +6,7 @@ require 'tempfile'
 # through them, not only streamer ones. render plain:, html:, body: and file:
 # get Template::Text, ::HTML and ::RawFile, which have no #handler. They must
 # be handed straight back to ActionView.
-class RailsIntegration::NonTemplateTest < ActiveSupport::TestCase
+class RailsIntegration::NonStreamerTemplateTest < ActiveSupport::TestCase
 
   test "render plain: passes through to ActionView" do
     assert_equal 'complete', render_without_template(plain: 'complete')
