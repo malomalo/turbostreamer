@@ -10,7 +10,7 @@
 module ActionView::StreamingTurboTemplateRenderer
 
   def render_template(view, template, layout_name = nil, locals = {})
-    return super unless template.handler == TurboStreamer::Handler
+    return super unless streamer_template?(template)
 
     locals ||= {}
     layout = layout_name && find_layout(layout_name, locals.keys, [formats.first])

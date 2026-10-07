@@ -13,7 +13,7 @@ module ActionView::TurboTemplateRenderer
     # and its `yield` renders the template into the layout's own
     # builder, which is what the streaming renderer does too.
     def render_template(view, template, layout_name, locals)
-      return super unless template.handler == TurboStreamer::Handler
+      return super unless streamer_template?(template)
 
       # find_layout returns nil when the layout exists in another format but
       # not this one -- an app with layouts/application.html.erb and no JSON
@@ -78,6 +78,12 @@ module ActionView::TurboTemplateRenderer
         "  Skipped layout #{layout_name} -- it does not exist for " \
         "#{formats.first.inspect}; rendering without a layout"
       end
+    end
+
+    # render plain:/html:/body:/file: hand us ActionView::Template::Text,
+    # ::HTML or ::RawFile, which have no handler at all.
+    def streamer_template?(template)
+      template.respond_to?(:handler) && template.handler == TurboStreamer::Handler
     end
 
 end
