@@ -1,7 +1,47 @@
 # Changelog
 
-Unreleased
-----------
+3.0.0
+-----
+
+Breaking:
+
+* `partial!` is now `partial!(name, locals: nil, **render_options)`.
+  The partial name is the first argument, template locals go in `locals:`, and
+  every other keyword is passed to Action View as a render option:
+  `json.partial! 'post', locals: { post: @post }`. Previously bare keywords were
+  locals and the name could be given as a `partial:` option.
+
+  Nothing is reserved, so options TurboStreamer does not know about -- `cached:`,
+  `layout:`, whatever Action View adds next -- reach it anyway, and a local may
+  be named `formats` or `object` without being mistaken for an option.
+  `json.array! @posts, partial: 'post', as: :post` is unaffected.
+
+  To upgrade, move locals into `locals:` and give the name first. Left as they
+  were, bare locals reach Action View as render options, so the partial raises
+  `NameError` for the local it expected; a `partial:` option raises
+  `ArgumentError` for the missing name.
+
+  ```ruby
+  json.partial! 'comments/comments', comments: @comments
+  json.partial! 'comments/comments', locals: { comments: @comments }
+
+  json.partial! partial: 'posts/post', collection: @posts, as: :post
+  json.partial! 'posts/post', collection: @posts, as: :post
+  ```
+* The calls this library refuses raise Ruby's `::ArgumentError`. The
+  `TurboStreamer::Errors` module and `Errors::MergeError` are gone; rescue
+  `ArgumentError` instead.
+* Attributes and a block given together now raise `ArgumentError` naming the
+  attributes (e.g. `json.comments(@cs, :body) { |c| ... }`). 2.x ignored the
+  attributes and rendered the block, so drop the attributes to keep the output.
+* A key given no value, block or attributes on its own (e.g. `json.foo`) now
+  raises `ArgumentError` naming the key. 2.x emitted the key with an inspected
+  `Object` as its value on Oj, and raised `NoMethodError` on Wankel.
+* Encoder options configured for an encoder now apply whether it is named by
+  symbol or by class. `encoder: TurboStreamer::OjEncoder` found no options and
+  silently dropped whatever was set for `:oj` -- including the railtie's
+  `mode: :rails`, and so its HTML escaping -- where `encoder: :oj` kept them.
+  Output rendered with a class-named encoder changes accordingly.
 
 * Formatted keys are memoized per builder instance. The default,
   formatterless path allocated a fresh String for every key emission — the
@@ -16,17 +56,6 @@ Unreleased
   emitted a `"null!"` key whose value was an inspected `Object`.
 * Documented that `ActionController::API` silently skips layouts unless
   `ActionView::Layouts` is included.
-* **Breaking:** `partial!` is now `partial!(name, locals: nil, **render_options)`.
-  The partial name is the first argument, template locals go in `locals:`, and
-  every other keyword is passed to Action View as a render option:
-  `json.partial! 'post', locals: { post: @post }`. Previously bare keywords were
-  locals and the name could be given as a `partial:` option.
-
-  Nothing is reserved, so options TurboStreamer does not know about -- `cached:`,
-  `layout:`, whatever Action View adds next -- reach it anyway, and a local may
-  be named `formats` or `object` without being mistaken for an option. Both
-  wrong shapes name the call that was meant.
-  `json.array! @posts, partial: 'post', as: :post` is unaffected.
 * `partial!` no longer writes to anything the caller passed it. `:as` was
   deleted out of the caller's locals and the builder stored in them, so
   rendering twice with one hash lost `:as` on the second call and rendered a
@@ -38,26 +67,12 @@ Unreleased
   template -- whose output `partial!` discards, since the builder writes to the
   stream itself, so the node would simply be absent from the response.
 
-* Encoder options configured for an encoder now apply whether it is named by
-  symbol or by class. `encoder: TurboStreamer::OjEncoder` found no options and
-  silently dropped whatever was set for `:oj` -- including the railtie's
-  `mode: :rails`, and so its HTML escaping -- where `encoder: :oj` kept them.
-
 * `has_default_encoder_options?` no longer reports true for an encoder merely
   because something was rendered with it. Building a builder read through the
   options Hash's default proc, which assigns as it reads.
 
-* **Breaking:** the calls this library refuses raise Ruby's `::ArgumentError`.
-  The `TurboStreamer::Errors` module and `Errors::MergeError` are gone
-
-* A key given no value, block or attributes on its own (e.g. `json.foo`) now
-  raises `ArgumentError` naming the key.
-
 * A value that is not a collection or array like with a block now raises
   `ArgumentError` naming its class.
-
-* Attributes and a block given together now raise `ArgumentError` naming the
-  attributes (e.g. `json.comments(@cs, :body) { |c| ... }`).
 
 * Fixed the separator around injected JSON -- and so around `cache!`, which
   splices cached bytes -- in both encoders. A cached fragment beside a
